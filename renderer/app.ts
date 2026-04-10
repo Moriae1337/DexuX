@@ -28,6 +28,12 @@ const videoQualityHint = getElementByIdOrThrow<HTMLParagraphElement>('video-qual
 let currentVideoInfo: VideoInfo | null = null;
 let isBusy = false;
 
+function restartAnimation(element: HTMLElement, className: string): void {
+  element.classList.remove(className);
+  void element.offsetWidth;
+  element.classList.add(className);
+}
+
 function setBusy(nextValue: boolean): void {
   isBusy = nextValue;
   searchButton.disabled = nextValue;
@@ -42,6 +48,7 @@ function setBusy(nextValue: boolean): void {
 function setStatus(message: string, percent: number | null = null): void {
   statusText.textContent = message;
   progressBar.style.width = `${percent ?? 0}%`;
+  restartAnimation(statusText, 'is-updating');
 }
 
 function isProbablyUrl(value: string): boolean {
@@ -73,6 +80,7 @@ function renderVideoInfo(info: VideoInfo): void {
   currentVideoInfo = info;
   queryInput.value = info.webpageUrl || queryInput.value;
   videoCard.classList.remove('hidden');
+  restartAnimation(videoCard, 'animate-in');
   thumbnail.src = info.thumbnail || '';
   thumbnail.style.display = info.thumbnail ? 'block' : 'none';
   videoTitle.textContent = info.title;
@@ -97,11 +105,12 @@ function formatSearchMeta(result: SearchResult): string {
   return `${result.uploader} • ${result.duration}`;
 }
 
-function createSearchResult(result: SearchResult): HTMLButtonElement {
+function createSearchResult(result: SearchResult, index: number): HTMLButtonElement {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'search-result';
   button.dataset.url = result.webpageUrl || '';
+  button.style.setProperty('--stagger-index', String(index));
 
   const image = document.createElement('img');
   image.className = 'search-result-thumb';
@@ -154,11 +163,12 @@ function renderSearchResults(results: SearchResult[], query: string): void {
   searchSummary.textContent = `Showing ${results.length} result${results.length === 1 ? '' : 's'} for "${query}".`;
 
   const fragment = document.createDocumentFragment();
-  for (const result of results) {
-    fragment.append(createSearchResult(result));
+  for (const [index, result] of results.entries()) {
+    fragment.append(createSearchResult(result, index));
   }
 
   searchResults.append(fragment);
+  restartAnimation(searchResultsPanel, 'animate-in');
   updateSearchSelection();
 }
 
