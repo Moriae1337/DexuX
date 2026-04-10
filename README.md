@@ -37,3 +37,8 @@ npm start
 
 - `yt-dlp` uses `ffmpeg` to merge separate video and audio streams for higher resolutions.
 - Downloading videos may be subject to the source platform's rules and your local rights to the content.
+
+## Releases
+
+- This repo uses `release-please` to open and maintain release PRs from conventional commit history on `main`.
+- Merge the release PR to publish a GitHub release and bump the version in `package.json` and `.release-please-manifest.json`.
