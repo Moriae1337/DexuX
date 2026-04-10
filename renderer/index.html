@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DexuX Downloader</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero-card">
+        <p class="eyebrow">Desktop Downloader</p>
+        <h1>Search YouTube fast, then download what you pick.</h1>
+        <p class="hero-copy">
+          Search by video name or paste a direct YouTube link, inspect the result, choose a
+          target folder, and download the best available version or cap it at a specific
+          resolution.
+        </p>
+      </section>
+
+      <section class="panel">
+        <label class="field-label" for="video-query">Search YouTube or paste a link</label>
+        <div class="row url-row">
+          <input
+            id="video-query"
+            type="text"
+            placeholder="Video name or https://www.youtube.com/watch?v=..."
+          />
+          <button id="search-button" class="secondary">Search</button>
+        </div>
+
+        <div class="row settings-row">
+          <div class="field-block">
+            <label class="field-label" for="quality">Quality</label>
+            <select id="quality">
+              <option value="best">Best available</option>
+              <option value="1080p">Up to 1080p</option>
+              <option value="720p">Up to 720p</option>
+              <option value="480p">Up to 480p</option>
+            </select>
+          </div>
+
+          <div class="field-block folder-block">
+            <label class="field-label" for="download-folder">Download folder</label>
+            <div class="row">
+              <input id="download-folder" type="text" readonly placeholder="Choose a folder" />
+              <button id="folder-button" class="secondary">Browse</button>
+            </div>
+          </div>
+        </div>
+
+        <button id="download-button" class="primary">Download Video</button>
+      </section>
+
+      <section id="search-results-panel" class="panel search-panel hidden">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow section-eyebrow">Results</p>
+            <h2>Pick a video to inspect</h2>
+          </div>
+          <p id="search-summary" class="muted"></p>
+        </div>
+
+        <div id="search-results" class="search-results"></div>
+      </section>
+
+      <section id="video-card" class="panel video-card hidden">
+        <div class="video-header">
+          <img id="thumbnail" alt="Video thumbnail" />
+          <div>
+            <h2 id="video-title"></h2>
+            <p id="video-meta"></p>
+            <p id="video-quality-hint" class="muted"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel status-panel">
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <p id="status-text">Idle.</p>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
