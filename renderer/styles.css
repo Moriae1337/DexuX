@@ -256,7 +256,7 @@ button:disabled {
 }
 
 .animate-in {
-  animation: panel-reveal 420ms var(--ease-spring);
+  animation: panel-reveal 420ms var(--ease-spring) forwards;
 }
 
 .section-heading {
