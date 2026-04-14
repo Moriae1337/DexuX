@@ -1,10 +1,11 @@
 # DexuX Downloader
 
-Electron desktop app with a Python backend for inspecting and downloading YouTube videos with `yt-dlp`.
+Electron desktop app with a Python backend for inspecting and downloading videos with `yt-dlp`.
 
 ## What it does
 
-- Paste a YouTube URL and inspect the title, uploader, duration, and available resolutions.
+- Paste a YouTube or TikTok URL and inspect the title, uploader, duration, and available resolutions.
+- Search YouTube by title and browse the results in a visual board.
 - Pick a destination folder from a native desktop dialog.
 - Download the best available video or cap the output at `1080p`, `720p`, or `480p`.
 - View progress updates inside the desktop UI.
