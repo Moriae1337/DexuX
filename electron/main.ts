@@ -10,10 +10,8 @@ type DownloaderMessage =
 type DownloadPayloadInput = Partial<DownloadRequest> | undefined;
 
 const DIST_ROOT = path.join(__dirname, '..');
-const PROJECT_ROOT = path.join(__dirname, '..', '..');
 const PRELOAD_PATH = path.join(__dirname, 'preload.js');
 const RENDERER_ENTRY = path.join(DIST_ROOT, 'renderer', 'index.html');
-const DOWNLOADER_SCRIPT_PATH = path.join(PROJECT_ROOT, 'backend', 'downloader.py');
 
 const WINDOW_LIMITS = {
   minWidth: 860,
@@ -32,6 +30,14 @@ const IPC_CHANNELS = {
 
 let mainWindow: BrowserWindow | null = null;
 let pythonCommandCache: string | null = null;
+
+function getProjectRoot(): string {
+  return app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..');
+}
+
+function getDownloaderScriptPath(): string {
+  return path.join(getProjectRoot(), 'backend', 'downloader.py');
+}
 
 function clampWindowSize(size: number, min: number, max: number, ratio: number): number {
   return Math.max(min, Math.min(max, Math.round(size * ratio)));
@@ -157,8 +163,8 @@ function runDownloader<T>(
       return;
     }
 
-    const child = spawn(pythonCommand, [DOWNLOADER_SCRIPT_PATH, ...args], {
-      cwd: PROJECT_ROOT,
+    const child = spawn(pythonCommand, [getDownloaderScriptPath(), ...args], {
+      cwd: getProjectRoot(),
     });
 
     let stdoutBuffer = '';
