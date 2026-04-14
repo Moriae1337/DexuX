@@ -59,7 +59,7 @@ namespace DexuXRenderer {
     const query = ui.queryInput.value.trim();
 
     if (!query) {
-      setStatus('Search by video name or paste a YouTube URL first.');
+      setStatus('Search YouTube by title, or paste a direct YouTube or TikTok link first.');
       return;
     }
 

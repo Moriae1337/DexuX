@@ -234,7 +234,8 @@ namespace DexuXRenderer {
     title.textContent = 'Nothing matched that search';
 
     const copy = document.createElement('p');
-    copy.textContent = 'Try a different video title, or paste a direct YouTube link to open a single downloadable card.';
+    copy.textContent =
+      'Try a different title, or paste a direct YouTube or TikTok link to open one downloadable card.';
 
     emptyState.append(title, copy);
     return emptyState;

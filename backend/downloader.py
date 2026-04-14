@@ -239,7 +239,7 @@ def require_argument(args: list[str], index: int, error_message: str) -> str:
 
 
 def handle_info_command(args: list[str]) -> None:
-    extract_video_info(require_argument(args, 0, "A YouTube URL is required."))
+    extract_video_info(require_argument(args, 0, "A video URL is required."))
 
 
 def handle_search_command(args: list[str]) -> None:
@@ -247,7 +247,7 @@ def handle_search_command(args: list[str]) -> None:
 
 
 def handle_download_command(args: list[str]) -> None:
-    url = require_argument(args, 0, "A YouTube URL is required.")
+    url = require_argument(args, 0, "A video URL is required.")
     output_dir = require_argument(args, 1, "A download directory is required.")
     quality = args[2] if len(args) > 2 else "best"
     download_video(url, output_dir, quality)

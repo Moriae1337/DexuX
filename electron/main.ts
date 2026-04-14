@@ -111,7 +111,7 @@ function openDownloadDirectoryPicker(): Promise<Electron.OpenDialogReturnValue> 
 
 function resolveDownloadPayload(payload: DownloadPayloadInput): DownloadRequest {
   return {
-    url: requireText(payload?.url, 'A YouTube URL is required.'),
+    url: requireText(payload?.url, 'A video URL is required.'),
     outputDir: requireText(payload?.outputDir, 'Choose a download folder first.'),
     quality: payload?.quality || 'best',
   };
@@ -237,7 +237,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.fetchVideoInfo, async (_event, url: string) => {
-    return runDownloader<VideoInfo>(['info', requireText(url, 'A YouTube URL is required.')]);
+    return runDownloader<VideoInfo>(['info', requireText(url, 'A video URL is required.')]);
   });
 
   ipcMain.handle(IPC_CHANNELS.searchVideos, async (_event, query: string) => {
