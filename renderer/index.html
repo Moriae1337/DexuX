@@ -8,81 +8,60 @@
   </head>
   <body>
     <main class="app-shell">
-      <section class="hero-card">
-        <p class="eyebrow">Desktop Downloader</p>
-        <h1>Search YouTube fast, then download what you pick.</h1>
-        <p class="hero-copy">
-          Search by video name or paste a direct YouTube link, inspect the result, choose a
-          target folder, and download the best available version or cap it at a specific
-          resolution.
-        </p>
-      </section>
-
-      <section class="panel">
-        <label class="field-label" for="video-query">Search YouTube or paste a link</label>
-        <div class="row url-row">
-          <input
-            id="video-query"
-            type="text"
-            placeholder="Video name or https://www.youtube.com/watch?v=..."
-          />
-          <button id="search-button" class="secondary">Search</button>
+      <section class="masthead">
+        <div class="hero-copy-block">
+          <p class="eyebrow">DexuX Downloader</p>
+          <h1>Browse videos like inspiration pins, then save the one worth keeping.</h1>
+          <p class="hero-copy">
+            Search by title to explore a visual board of results, or paste a direct YouTube
+            link to open one card instantly and download it in the quality you want.
+          </p>
         </div>
 
-        <div class="row settings-row">
-          <div class="field-block">
-            <label class="field-label" for="quality">Quality</label>
-            <select id="quality">
-              <option value="best">Best available</option>
-              <option value="1080p">Up to 1080p</option>
-              <option value="720p">Up to 720p</option>
-              <option value="480p">Up to 480p</option>
-            </select>
+        <section class="search-card">
+          <label class="field-label" for="video-query">Find a YouTube video</label>
+          <div class="search-row">
+            <input
+              id="video-query"
+              type="text"
+              placeholder="Search by title or paste https://www.youtube.com/watch?v=..."
+            />
+            <button id="search-button" class="search-button">Search</button>
           </div>
-
-          <div class="field-block folder-block">
-            <label class="field-label" for="download-folder">Download folder</label>
-            <div class="row">
-              <input id="download-folder" type="text" readonly placeholder="Choose a folder" />
-              <button id="folder-button" class="secondary">Browse</button>
-            </div>
-          </div>
-        </div>
-
-        <button id="download-button" class="primary">Download Video</button>
+          <p class="field-hint">
+            Search opens a visual board. Pasting a direct link creates one expanded card ready
+            for download.
+          </p>
+        </section>
       </section>
 
-      <section id="search-results-panel" class="panel search-panel hidden">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow section-eyebrow">Results</p>
-            <h2>Pick a video to inspect</h2>
-          </div>
-          <p id="search-summary" class="muted"></p>
+      <section class="status-strip" id="status-panel">
+        <div class="status-copy">
+          <p class="status-kicker">Studio status</p>
+          <p id="status-text">Search for a video title or paste a direct YouTube link.</p>
         </div>
-
-        <div id="search-results" class="search-results"></div>
-      </section>
-
-      <section id="video-card" class="panel video-card hidden">
-        <div class="video-header">
-          <img id="thumbnail" alt="Video thumbnail" />
-          <div>
-            <h2 id="video-title"></h2>
-            <p id="video-meta"></p>
-            <p id="video-quality-hint" class="muted"></p>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel status-panel">
         <div class="progress-track">
           <div id="progress-bar" class="progress-bar"></div>
         </div>
-        <p id="status-text">Idle.</p>
+      </section>
+
+      <section id="feed-panel" class="feed-shell hidden">
+        <div class="feed-header">
+          <div>
+            <p class="eyebrow section-eyebrow">Board</p>
+            <h2 id="feed-title">Inspiration Board</h2>
+          </div>
+          <p id="search-summary" class="muted feed-summary"></p>
+        </div>
+
+        <div id="search-results" class="pin-grid"></div>
       </section>
     </main>
 
+    <script src="./state.js"></script>
+    <script src="./ui.js"></script>
+    <script src="./render.js"></script>
+    <script src="./actions.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
