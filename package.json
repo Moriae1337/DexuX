@@ -1,6 +1,6 @@
 {
   "name": "dexux-youtube-downloader",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Electron and Python desktop app for downloading YouTube videos.",
   "main": "dist/electron/main.js",
   "scripts": {
