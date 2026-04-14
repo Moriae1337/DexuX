@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.2.0...dexux-youtube-downloader-v0.2.1) (2026-04-14)
+
+
+### Bug Fixes
+
+* release please packaging ([#10](https://github.com/Moriae1337/DexuX/issues/10)) ([cc6f4c8](https://github.com/Moriae1337/DexuX/commit/cc6f4c8b9f5dfa7182a832955ce1f80fc9a6c428))
+
 ## [0.2.0](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.1.1...dexux-youtube-downloader-v0.2.0) (2026-04-14)
 
 
