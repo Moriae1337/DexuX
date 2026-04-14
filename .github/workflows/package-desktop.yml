@@ -1,12 +1,12 @@
 name: package-desktop
 
 on:
-  pull_request:
-  push:
-  workflow_dispatch:
-  release:
-    types:
-      - published
+  workflow_call:
+    inputs:
+      tag_name:
+        description: Release tag to package and publish
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -36,21 +38,10 @@ jobs:
       - name: Package Linux app
         run: npm run package:linux
 
-      - name: Upload Linux app artifact
-        if: ${{ github.event_name != 'release' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: DexuX-linux-${{ github.sha }}
-          path: |
-            release/*.AppImage
-            release/*.blockmap
-          if-no-files-found: error
-
       - name: Upload Linux release assets
-        if: ${{ github.event_name == 'release' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name }}
+          tag_name: ${{ inputs.tag_name }}
           files: |
             release/*.AppImage
             release/*.blockmap
@@ -61,6 +52,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -79,21 +72,10 @@ jobs:
       - name: Package Windows app
         run: npm run package:win
 
-      - name: Upload Windows app artifact
-        if: ${{ github.event_name != 'release' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: DexuX-windows-${{ github.sha }}
-          path: |
-            release/*.exe
-            release/latest*.yml
-          if-no-files-found: error
-
       - name: Upload Windows release assets
-        if: ${{ github.event_name == 'release' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name }}
+          tag_name: ${{ inputs.tag_name }}
           files: |
             release/*.exe
             release/latest*.yml
