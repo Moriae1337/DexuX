@@ -41,6 +41,7 @@ npm start
 - Build each release on its target OS so PyInstaller can produce a native backend binary for that platform.
 - The build machine still needs Python available to create the standalone backend.
 - `ffmpeg` is still expected on the target machine `PATH` for merge-heavy downloads.
+- Auto-update metadata is published from GitHub Releases, using the `dexux-youtube-downloader-v*` tags created by `release-please`.
 
 ## Notes
 
