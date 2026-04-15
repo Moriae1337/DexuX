@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.2.1...dexux-youtube-downloader-v0.3.0) (2026-04-15)
+
+
+### Features
+
+* add desktop auto-updates ([#14](https://github.com/Moriae1337/DexuX/issues/14)) ([5d03727](https://github.com/Moriae1337/DexuX/commit/5d037278f87656268bc8426929f695734c5ce608))
+* add parallel download queue ([#16](https://github.com/Moriae1337/DexuX/issues/16)) ([ae68ac9](https://github.com/Moriae1337/DexuX/commit/ae68ac9ec1589bca2b1776457f80710ff0e69651))
+* standalone backend packaging ([#12](https://github.com/Moriae1337/DexuX/issues/12)) ([e6d01f7](https://github.com/Moriae1337/DexuX/commit/e6d01f718ee713cfeb16dfbfb51d9cdb00831aaf))
+
 ## [0.2.1](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.2.0...dexux-youtube-downloader-v0.2.1) (2026-04-14)
 
 
