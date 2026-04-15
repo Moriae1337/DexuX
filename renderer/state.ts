@@ -3,6 +3,7 @@ namespace DexuXRenderer {
 
   export interface AppState {
     searchItems: SearchResult[];
+    downloadQueue: QueuedVideo[];
     selectedUrl: string | null;
     currentVideoInfo: VideoInfo | null;
     currentQuality: string;
@@ -11,6 +12,10 @@ namespace DexuXRenderer {
     feedMode: FeedMode;
     hasAttemptedSearch: boolean;
     isBusy: boolean;
+    parallelDownloadLimit: number;
+    queueRunDownloadIds: string[];
+    queueRunTotal: number;
+    completedQueueCount: number;
   }
 
   export interface SelectionSnapshot {
@@ -29,6 +34,7 @@ namespace DexuXRenderer {
 
   export const state: AppState = {
     searchItems: [],
+    downloadQueue: [],
     selectedUrl: null,
     currentVideoInfo: null,
     currentQuality: 'best',
@@ -37,6 +43,10 @@ namespace DexuXRenderer {
     feedMode: null,
     hasAttemptedSearch: false,
     isBusy: false,
+    parallelDownloadLimit: 2,
+    queueRunDownloadIds: [],
+    queueRunTotal: 0,
+    completedQueueCount: 0,
   };
 
   export function getErrorMessage(error: unknown, fallbackMessage: string): string {
@@ -54,6 +64,25 @@ namespace DexuXRenderer {
 
   export function getCardHeight(index: number): string {
     return CARD_HEIGHTS[index % CARD_HEIGHTS.length];
+  }
+
+  export function getQualityLabel(quality: string): string {
+    return QUALITY_OPTIONS.find((option) => option.value === quality)?.label ?? quality;
+  }
+
+  export function getQueueStatusDetail(item: QueuedVideo): QueueItemStatusDetail {
+    switch (item.status) {
+      case 'downloading':
+        return { label: 'Downloading', tone: 'active' };
+      case 'processing':
+        return { label: 'Finalizing', tone: 'active' };
+      case 'complete':
+        return { label: 'Done', tone: 'complete' };
+      case 'failed':
+        return { label: 'Failed', tone: 'failed' };
+      default:
+        return { label: 'Queued', tone: 'queued' };
+    }
   }
 
   export function formatSearchMeta(result: SearchResult): string {
@@ -91,6 +120,86 @@ namespace DexuXRenderer {
   export function restoreSelection(snapshot: SelectionSnapshot): void {
     state.selectedUrl = snapshot.selectedUrl;
     state.currentVideoInfo = snapshot.currentVideoInfo;
+  }
+
+  export function isQueued(url: string): boolean {
+    return state.downloadQueue.some((item) => item.webpageUrl === url);
+  }
+
+  export function getQueueItemById(downloadId: string | undefined): QueuedVideo | null {
+    if (!downloadId) {
+      return null;
+    }
+
+    return state.downloadQueue.find((item) => item.downloadId === downloadId) ?? null;
+  }
+
+  export function enqueueVideo(result: SearchResult, quality: string): boolean {
+    if (isQueued(result.webpageUrl)) {
+      return false;
+    }
+
+    state.downloadQueue.push({
+      downloadId: crypto.randomUUID(),
+      ...result,
+      quality,
+      status: 'queued',
+      progressPercent: null,
+      progressText: `Ready at ${getQualityLabel(quality)}`,
+    });
+
+    return true;
+  }
+
+  export function removeQueuedVideo(downloadId: string): void {
+    const itemIndex = state.downloadQueue.findIndex((item) => item.downloadId === downloadId);
+
+    if (itemIndex >= 0) {
+      state.downloadQueue.splice(itemIndex, 1);
+    }
+  }
+
+  export function clearQueue(): void {
+    state.downloadQueue = [];
+    state.queueRunDownloadIds = [];
+    state.queueRunTotal = 0;
+    state.completedQueueCount = 0;
+  }
+
+  export function getRunnableQueueItems(): QueuedVideo[] {
+    return state.downloadQueue.filter((item) => item.status === 'queued' || item.status === 'failed');
+  }
+
+  export function getActiveQueueItems(): QueuedVideo[] {
+    return state.downloadQueue.filter((item) => item.status === 'downloading' || item.status === 'processing');
+  }
+
+  export function calculateQueueProgressPercent(): number | null {
+    if (state.queueRunTotal <= 0) {
+      return null;
+    }
+
+    const queueProgressTotal = state.downloadQueue.reduce((total, item) => {
+      if (!state.queueRunDownloadIds.includes(item.downloadId)) {
+        return total;
+      }
+
+      if (item.status === 'complete') {
+        return total + 100;
+      }
+
+      if (item.status === 'processing') {
+        return total + 100;
+      }
+
+      if (item.status === 'downloading' && item.progressPercent != null) {
+        return total + item.progressPercent;
+      }
+
+      return total;
+    }, 0);
+
+    return Math.round((queueProgressTotal / state.queueRunTotal) * 100);
   }
 
   export function upsertResult(nextItem: SearchResult): void {

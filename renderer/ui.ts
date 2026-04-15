@@ -16,6 +16,10 @@ namespace DexuXRenderer {
     progressBar: getElementByIdOrThrow<HTMLDivElement>('progress-bar'),
     feedPanel: getElementByIdOrThrow<HTMLElement>('feed-panel'),
     feedTitle: getElementByIdOrThrow<HTMLHeadingElement>('feed-title'),
+    queuePanel: getElementByIdOrThrow<HTMLElement>('queue-panel'),
+    queueSummary: getElementByIdOrThrow<HTMLParagraphElement>('queue-summary'),
+    queueActions: getElementByIdOrThrow<HTMLDivElement>('queue-actions'),
+    queueItems: getElementByIdOrThrow<HTMLDivElement>('queue-items'),
     searchResults: getElementByIdOrThrow<HTMLDivElement>('search-results'),
     searchSummary: getElementByIdOrThrow<HTMLParagraphElement>('search-summary'),
   };

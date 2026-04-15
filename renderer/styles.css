@@ -279,6 +279,14 @@ button:disabled {
   padding: 24px;
 }
 
+.queue-shell {
+  margin-bottom: 20px;
+  padding: 18px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, #fffaf7 0%, #fff3ee 100%);
+  border: 1px solid rgba(92, 63, 51, 0.07);
+}
+
 .feed-header {
   display: flex;
   align-items: flex-end;
@@ -287,10 +295,141 @@ button:disabled {
   margin-bottom: 20px;
 }
 
+.queue-toolbar,
+.queue-actions,
+.pin-footer-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.queue-toolbar {
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.queue-actions {
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.queue-summary {
+  max-width: 32ch;
+  text-align: right;
+  line-height: 1.5;
+}
+
 .feed-summary {
   max-width: 32ch;
   text-align: right;
   line-height: 1.5;
+}
+
+.queue-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(92, 63, 51, 0.07);
+}
+
+.queue-item.is-active {
+  border-color: rgba(217, 75, 69, 0.26);
+  box-shadow: 0 12px 24px rgba(217, 75, 69, 0.12);
+}
+
+.queue-item.is-complete {
+  border-color: rgba(50, 128, 84, 0.16);
+}
+
+.queue-item.is-failed {
+  border-color: rgba(183, 52, 48, 0.18);
+}
+
+.queue-item-copy {
+  min-width: 0;
+}
+
+.queue-item-title {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.queue-item-meta {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.queue-item-progress-text {
+  margin-top: 8px;
+  color: #61534d;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.queue-progress-track {
+  width: 100%;
+  height: 8px;
+  margin-top: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #ecdfda;
+}
+
+.queue-progress-bar {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ef8f77 0%, #d94b45 100%);
+  transition: width 180ms linear;
+}
+
+.queue-item-actions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.queue-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.queue-status-pill.is-queued {
+  color: #665751;
+  background: rgba(92, 63, 51, 0.1);
+}
+
+.queue-status-pill.is-active {
+  color: #fff8f7;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
+}
+
+.queue-status-pill.is-complete {
+  color: #1d5d38;
+  background: rgba(56, 149, 94, 0.16);
+}
+
+.queue-status-pill.is-failed {
+  color: #9f302c;
+  background: rgba(217, 75, 69, 0.14);
 }
 
 .pin-grid {
@@ -362,7 +501,8 @@ button:disabled {
 
 .duration-pill,
 .selection-pill,
-.pin-action {
+.pin-action,
+.queue-action-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -412,6 +552,17 @@ button:disabled {
   gap: 12px;
 }
 
+.pin-card-footer-bar {
+  margin-top: 0;
+  padding: 0 16px 18px;
+}
+
+.pin-footer-actions {
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 .pin-caption {
   font-size: 0.85rem;
   color: #8b7b74;
@@ -421,6 +572,20 @@ button:disabled {
   padding: 7px 11px;
   color: var(--accent);
   background: rgba(217, 75, 69, 0.1);
+}
+
+.queue-action-button {
+  padding: 10px 14px;
+  border: 1px solid rgba(92, 63, 51, 0.11);
+  color: #564741;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.queue-action-primary {
+  border-color: transparent;
+  color: #fffaf9;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
+  box-shadow: 0 12px 24px rgba(217, 75, 69, 0.18);
 }
 
 .expanded-card {
@@ -601,13 +766,16 @@ button:disabled {
 
   .status-strip,
   .feed-header,
+  .queue-toolbar,
   .search-row,
   .folder-row,
-  .expanded-actions {
+  .expanded-actions,
+  .queue-item {
     flex-direction: column;
     align-items: stretch;
   }
 
+  .queue-summary,
   .feed-summary {
     max-width: none;
     text-align: left;
@@ -620,7 +788,8 @@ button:disabled {
   button,
   .search-button,
   .browse-button,
-  .download-button {
+  .download-button,
+  .queue-action-button {
     width: 100%;
   }
 }

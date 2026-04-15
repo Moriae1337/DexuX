@@ -290,6 +290,7 @@ function openDownloadDirectoryPicker(): Promise<Electron.OpenDialogReturnValue> 
 
 function resolveDownloadPayload(payload: DownloadPayloadInput): DownloadRequest {
   return {
+    downloadId: payload?.downloadId?.trim() || undefined,
     url: requireText(payload?.url, 'A video URL is required.'),
     outputDir: requireText(payload?.outputDir, 'Choose a download folder first.'),
     quality: payload?.quality || 'best',
@@ -425,15 +426,21 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.downloadVideo, async (_event, payload: DownloadPayloadInput) => {
-    const { url, outputDir, quality } = resolveDownloadPayload(payload);
+    const { downloadId, url, outputDir, quality } = resolveDownloadPayload(payload);
 
     return runDownloader<DownloadResult>(['download', url, outputDir, quality], {
       onEvent(message) {
         if (message.type === 'progress') {
-          mainWindow?.webContents.send(IPC_CHANNELS.downloadProgress, message.data);
+          mainWindow?.webContents.send(IPC_CHANNELS.downloadProgress, {
+            ...(message.data as DownloadProgress),
+            downloadId,
+          } satisfies DownloadProgress);
         }
       },
-    });
+    }).then((result) => ({
+      ...result,
+      downloadId,
+    }));
   });
 }
 

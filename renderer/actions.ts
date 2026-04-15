@@ -1,4 +1,47 @@
 namespace DexuXRenderer {
+  function resetQueueItemForDownload(item: QueuedVideo): void {
+    item.status = 'queued';
+    item.progressPercent = null;
+    item.progressText = `Ready at ${getQualityLabel(item.quality)}`;
+    item.savedPath = undefined;
+    item.errorMessage = undefined;
+  }
+
+  export function addVideoToQueue(result: SearchResult): void {
+    const added = enqueueVideo(result, state.currentQuality);
+    renderFeed();
+
+    if (!added) {
+      setStatus(`"${result.title}" is already in the queue.`);
+      return;
+    }
+
+    setStatus(`Added "${result.title}" to the queue. ${state.downloadQueue.length} video${state.downloadQueue.length === 1 ? '' : 's'} ready.`);
+  }
+
+  export function removeVideoFromQueue(downloadId: string): void {
+    const queueItem = getQueueItemById(downloadId);
+
+    if (!queueItem) {
+      return;
+    }
+
+    removeQueuedVideo(downloadId);
+    renderFeed();
+    setStatus(`Removed "${queueItem.title}" from the queue.`);
+  }
+
+  export function clearDownloadQueue(): void {
+    if (state.downloadQueue.length === 0) {
+      setStatus('The queue is already empty.');
+      return;
+    }
+
+    clearQueue();
+    renderFeed();
+    setStatus('Download queue cleared.');
+  }
+
   export function clearSelection(): void {
     state.selectedUrl = null;
     state.currentVideoInfo = null;
@@ -156,7 +199,141 @@ namespace DexuXRenderer {
     }
   }
 
+  export async function downloadQueuedVideos(): Promise<void> {
+    const runnableItems = getRunnableQueueItems();
+
+    if (runnableItems.length === 0) {
+      setStatus('Add videos to the queue first.');
+      return;
+    }
+
+    if (!state.downloadFolder) {
+      setStatus('Choose a download folder first.');
+      return;
+    }
+
+    setBusy(true);
+    state.queueRunDownloadIds = runnableItems.map((item) => item.downloadId);
+    state.queueRunTotal = runnableItems.length;
+    state.completedQueueCount = 0;
+
+    const failures: string[] = [];
+    const concurrency = Math.min(state.parallelDownloadLimit, runnableItems.length);
+
+    for (const item of runnableItems) {
+      resetQueueItemForDownload(item);
+    }
+
+    renderFeed();
+
+    try {
+      setStatus(`Starting ${state.queueRunTotal} queued downloads with ${concurrency} in parallel.`);
+
+      let nextIndex = 0;
+
+      const runNextDownload = async (): Promise<void> => {
+        const queueItem = runnableItems[nextIndex];
+        nextIndex += 1;
+
+        if (!queueItem) {
+          return;
+        }
+
+        queueItem.status = 'downloading';
+        queueItem.progressPercent = 0;
+        queueItem.progressText = 'Starting download...';
+        renderFeed();
+
+        try {
+          const result = await window.downloaderApi.downloadVideo({
+            downloadId: queueItem.downloadId,
+            url: queueItem.webpageUrl,
+            outputDir: state.downloadFolder,
+            quality: queueItem.quality,
+          });
+
+          queueItem.status = 'complete';
+          queueItem.progressPercent = 100;
+          queueItem.savedPath = result.path;
+          queueItem.progressText = `Saved to ${result.path}`;
+        } catch (error) {
+          const message = getErrorMessage(error, 'Download failed.');
+          queueItem.status = 'failed';
+          queueItem.errorMessage = message;
+          queueItem.progressPercent = null;
+          queueItem.progressText = message;
+          failures.push(`${queueItem.title}: ${message}`);
+        } finally {
+          state.completedQueueCount += 1;
+          renderFeed();
+        }
+
+        await runNextDownload();
+      };
+
+      await Promise.all(Array.from({ length: concurrency }, () => runNextDownload()));
+
+      const successCount = state.queueRunTotal - failures.length;
+      if (failures.length === 0) {
+        setStatus(`Queue finished. Saved ${successCount} video${successCount === 1 ? '' : 's'}.`, 100);
+        return;
+      }
+
+      setStatus(
+        `Queue finished with ${successCount} saved and ${failures.length} failed. Last issue: ${failures[failures.length - 1]}`,
+      );
+    } finally {
+      setBusy(false);
+      state.queueRunDownloadIds = [];
+      state.queueRunTotal = 0;
+      state.completedQueueCount = 0;
+      renderFeed();
+    }
+  }
+
   export function handleDownloadProgress(progress: DownloadProgress): void {
+    const queueItem = getQueueItemById(progress.downloadId);
+
+    if (queueItem) {
+      if (progress.status === 'processing') {
+        queueItem.status = 'processing';
+        queueItem.progressPercent = 100;
+        queueItem.progressText = progress.message || 'Finalizing file...';
+      } else {
+        queueItem.status = 'downloading';
+        queueItem.progressPercent = progress.percent ?? queueItem.progressPercent;
+
+        const parts = ['Downloading'];
+
+        if (progress.percent != null) {
+          parts.push(`${progress.percent}%`);
+        }
+
+        if (progress.downloaded && progress.total) {
+          parts.push(`(${progress.downloaded} / ${progress.total})`);
+        }
+
+        if (progress.speed) {
+          parts.push(`at ${progress.speed}`);
+        }
+
+        queueItem.progressText = parts.join(' ');
+      }
+
+      renderFeed();
+
+      const activeItems = getActiveQueueItems();
+      const queueProgress = calculateQueueProgressPercent();
+      const progressPrefix = `Parallel downloads: ${state.completedQueueCount}/${state.queueRunTotal} done, ${activeItems.length} active`;
+      const detailText =
+        progress.status === 'processing'
+          ? `${queueItem.title} - ${progress.message || 'Finalizing file...'}`
+          : queueItem.progressText;
+
+      setStatus(`${progressPrefix} • ${detailText}`, queueProgress);
+      return;
+    }
+
     if (progress.status === 'processing') {
       setStatus(progress.message || 'Finalizing file...', 100);
       return;
