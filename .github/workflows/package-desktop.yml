@@ -44,6 +44,7 @@ jobs:
           tag_name: ${{ inputs.tag_name }}
           files: |
             release/*.AppImage
+            release/latest-linux.yml
             release/*.blockmap
 
   package-windows:

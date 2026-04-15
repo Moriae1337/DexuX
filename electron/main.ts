@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, screen, type OpenDialogOptio
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import * as path from 'node:path';
+import electronUpdater, { type AppUpdater, type UpdateDownloadedEvent, type UpdateInfo } from 'electron-updater';
 
 type DownloaderMessage =
   | { type: 'info' | 'search' | 'complete'; data: unknown }
@@ -33,6 +34,9 @@ const IPC_CHANNELS = {
 
 let mainWindow: BrowserWindow | null = null;
 let pythonCommandCache: PythonCommand | null = null;
+let updateAvailableNoticeShown = false;
+
+const { autoUpdater } = electronUpdater;
 
 function getProjectRoot(): string {
   return app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..');
@@ -83,6 +87,108 @@ function createWindow(): void {
 
   mainWindow.removeMenu();
   void mainWindow.loadFile(RENDERER_ENTRY);
+}
+
+function showMessageBox(options: Electron.MessageBoxOptions): Promise<Electron.MessageBoxReturnValue> {
+  return mainWindow ? dialog.showMessageBox(mainWindow, options) : dialog.showMessageBox(options);
+}
+
+function canCheckForUpdates(): boolean {
+  if (!app.isPackaged || process.env.DEXUX_DISABLE_AUTO_UPDATES === '1') {
+    return false;
+  }
+
+  // AppImage updates only work when the app is running from a real AppImage bundle.
+  if (process.platform === 'linux' && !process.env.APPIMAGE) {
+    return false;
+  }
+
+  return true;
+}
+
+function formatReleaseNotes(releaseNotes: UpdateInfo['releaseNotes']): string | null {
+  if (!releaseNotes) {
+    return null;
+  }
+
+  if (typeof releaseNotes === 'string') {
+    return releaseNotes.trim() || null;
+  }
+
+  const sections = releaseNotes
+    .map((note) => {
+      const version = note.version ? `Version ${note.version}` : 'Update';
+      const details = note.note?.trim();
+      return details ? `${version}\n${details}` : version;
+    })
+    .filter(Boolean);
+
+  return sections.length > 0 ? sections.join('\n\n') : null;
+}
+
+async function promptToInstallUpdate(updater: AppUpdater, event: UpdateDownloadedEvent): Promise<void> {
+  const detailParts = ['A new DexuX Downloader update has been downloaded and is ready to install.'];
+  const releaseNotes = formatReleaseNotes(event.releaseNotes);
+
+  if (releaseNotes) {
+    detailParts.push(`What changed:\n\n${releaseNotes}`);
+  }
+
+  const result = await showMessageBox({
+    type: 'info',
+    buttons: ['Restart Now', 'Later'],
+    defaultId: 0,
+    cancelId: 1,
+    title: 'Update Ready',
+    message: `Version ${event.version} is ready to install.`,
+    detail: detailParts.join('\n\n'),
+  });
+
+  if (result.response === 0) {
+    updater.quitAndInstall();
+  }
+}
+
+function setupAutoUpdates(): void {
+  if (!canCheckForUpdates()) {
+    return;
+  }
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('error', (error: Error) => {
+    console.error('Auto-update failed:', error);
+  });
+
+  autoUpdater.on('update-available', (info: UpdateInfo) => {
+    if (updateAvailableNoticeShown) {
+      return;
+    }
+
+    updateAvailableNoticeShown = true;
+    const detailParts = ['DexuX Downloader found a new version and is downloading it in the background.'];
+    const releaseNotes = formatReleaseNotes(info.releaseNotes);
+
+    if (releaseNotes) {
+      detailParts.push(`What changed:\n\n${releaseNotes}`);
+    }
+
+    void showMessageBox({
+      type: 'info',
+      buttons: ['OK'],
+      defaultId: 0,
+      title: 'Downloading Update',
+      message: `Version ${info.version} is on the way.`,
+      detail: detailParts.join('\n\n'),
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (event: UpdateDownloadedEvent) => {
+    void promptToInstallUpdate(autoUpdater, event);
+  });
+
+  void autoUpdater.checkForUpdates();
 }
 
 function isPythonCommandAvailable(candidate: PythonCommand): boolean {
@@ -335,6 +441,7 @@ void app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   registerIpcHandlers();
   createWindow();
+  setupAutoUpdates();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

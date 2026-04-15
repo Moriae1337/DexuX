@@ -14,12 +14,22 @@
   },
   "build": {
     "appId": "com.dexux.downloader",
+    "artifactName": "DexuX-Downloader-${version}.${ext}",
+    "electronUpdaterCompatibility": ">=2.16",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
       "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Moriae1337",
+        "repo": "DexuX",
+        "tagNamePrefix": "dexux-youtube-downloader-v"
+      }
     ],
     "linux": {
       "target": [
@@ -50,5 +60,8 @@
     "electron": "^41.2.0",
     "electron-builder": "^26.0.12",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
   }
 }
