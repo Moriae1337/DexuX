@@ -1,4 +1,18 @@
 namespace DexuXRenderer {
+  export function createQueueActionButton(
+    label: string,
+    onClick: () => void,
+    { disabled = false, variant = 'secondary' }: { disabled?: boolean; variant?: 'secondary' | 'primary' } = {},
+  ): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = variant === 'primary' ? 'queue-action-button queue-action-primary' : 'queue-action-button';
+    button.textContent = label;
+    button.disabled = disabled;
+    button.addEventListener('click', onClick);
+    return button;
+  }
+
   export function createMedia(result: SearchResult, height: string): HTMLDivElement {
     const media = document.createElement('div');
     media.className = 'pin-media';
@@ -33,11 +47,11 @@ namespace DexuXRenderer {
     card.className = 'pin-card compact-card';
     card.style.setProperty('--stagger-index', String(index));
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'pin-card-button';
-    button.disabled = state.isBusy;
-    button.addEventListener('click', () => {
+    const previewButton = document.createElement('button');
+    previewButton.type = 'button';
+    previewButton.className = 'pin-card-button';
+    previewButton.disabled = state.isBusy;
+    previewButton.addEventListener('click', () => {
       void selectSearchResult(result.webpageUrl);
     });
 
@@ -54,21 +68,31 @@ namespace DexuXRenderer {
     meta.className = 'pin-meta';
     meta.textContent = result.uploader;
 
+    body.append(title, meta);
+    previewButton.append(media, body);
+
     const footer = document.createElement('div');
-    footer.className = 'pin-footer';
+    footer.className = 'pin-footer pin-card-footer-bar';
 
     const detail = document.createElement('span');
     detail.className = 'pin-caption';
     detail.textContent = result.duration;
 
-    const action = document.createElement('span');
-    action.className = 'pin-action';
-    action.textContent = 'Open details';
+    const footerActions = document.createElement('div');
+    footerActions.className = 'pin-footer-actions';
 
-    footer.append(detail, action);
-    body.append(title, meta, footer);
-    button.append(media, body);
-    card.append(button);
+    const openAction = document.createElement('span');
+    openAction.className = 'pin-action';
+    openAction.textContent = 'Open details';
+
+    const queueButton = createQueueActionButton(isQueued(result.webpageUrl) ? 'Queued' : 'Add to queue', () => {
+      addVideoToQueue(result);
+    });
+    queueButton.disabled = state.isBusy || isQueued(result.webpageUrl);
+
+    footerActions.append(openAction, queueButton);
+    footer.append(detail, footerActions);
+    card.append(previewButton, footer);
     return card;
   }
 
@@ -155,9 +179,123 @@ namespace DexuXRenderer {
       void downloadSelectedVideo(url);
     });
 
-    actions.append(downloadButton);
+    const queueButton = createQueueActionButton(isQueued(url) ? 'Already in queue' : 'Add selected to queue', () => {
+      addVideoToQueue(videoInfo);
+    });
+    queueButton.disabled = state.isBusy || isQueued(url);
+
+    actions.append(downloadButton, queueButton);
     controls.append(createQualityControl(), createFolderControl(), qualityHint, actions);
     return controls;
+  }
+
+  export function createQueueItem(queueItem: QueuedVideo): HTMLElement {
+    const item = document.createElement('article');
+    item.className = 'queue-item';
+
+    const statusDetail = getQueueStatusDetail(queueItem);
+    item.classList.add(`is-${statusDetail.tone}`);
+
+    if (queueItem.status === 'complete') {
+      item.classList.add('is-complete');
+    }
+
+    const copy = document.createElement('div');
+    copy.className = 'queue-item-copy';
+
+    const title = document.createElement('h3');
+    title.className = 'queue-item-title';
+    title.textContent = queueItem.title;
+
+    const meta = document.createElement('p');
+    meta.className = 'queue-item-meta';
+    meta.textContent = `${formatSearchMeta(queueItem)} • ${getQualityLabel(queueItem.quality)}`;
+
+    const progressText = document.createElement('p');
+    progressText.className = 'queue-item-progress-text';
+    progressText.textContent = queueItem.progressText;
+
+    const statusBadge = document.createElement('span');
+    statusBadge.className = `queue-status-pill is-${statusDetail.tone}`;
+    statusBadge.textContent = statusDetail.label;
+
+    const progressTrack = document.createElement('div');
+    progressTrack.className = 'queue-progress-track';
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'queue-progress-bar';
+    progressBar.style.width = `${queueItem.progressPercent ?? 0}%`;
+    progressTrack.append(progressBar);
+
+    copy.append(title, meta, progressText, progressTrack);
+
+    const actions = document.createElement('div');
+    actions.className = 'queue-item-actions';
+
+    const removeButton = createQueueActionButton(
+      queueItem.status === 'downloading' || queueItem.status === 'processing' ? 'Active' : 'Remove',
+      () => {
+        removeVideoFromQueue(queueItem.downloadId);
+      },
+    );
+    removeButton.disabled = state.isBusy || queueItem.status === 'downloading' || queueItem.status === 'processing';
+
+    actions.append(statusBadge, removeButton);
+    item.append(copy, actions);
+    return item;
+  }
+
+  export function renderQueue(): void {
+    const hasQueue = state.downloadQueue.length > 0;
+    ui.queuePanel.classList.toggle('hidden', !hasQueue);
+    ui.queueItems.replaceChildren();
+    ui.queueActions.replaceChildren();
+
+    if (!hasQueue) {
+      ui.queueSummary.textContent = '';
+      return;
+    }
+
+    const activeCount = getActiveQueueItems().length;
+    const queuedCount = state.downloadQueue.filter((item) => item.status === 'queued').length;
+    const failedCount = state.downloadQueue.filter((item) => item.status === 'failed').length;
+    const completeCount = state.downloadQueue.filter((item) => item.status === 'complete').length;
+
+    const summaryText =
+      state.queueRunTotal > 0
+        ? `${state.completedQueueCount}/${state.queueRunTotal} finished, ${activeCount} active, ${queuedCount} waiting.`
+        : `${queuedCount} waiting, ${completeCount} done, ${failedCount} failed.`;
+
+    ui.queueSummary.textContent = summaryText;
+
+    const downloadQueueButton = createQueueActionButton(
+      state.downloadFolder ? `Download ${state.parallelDownloadLimit} at a time` : 'Choose folder to download queue',
+      () => {
+        void downloadQueuedVideos();
+      },
+      {
+        disabled: state.isBusy || getRunnableQueueItems().length === 0 || !state.downloadFolder,
+        variant: 'primary',
+      },
+    );
+
+    const folderButton = createQueueActionButton(state.downloadFolder ? 'Change folder' : 'Choose folder', () => {
+      void chooseFolder();
+    }, { disabled: state.isBusy });
+
+    const clearQueueButton = createQueueActionButton('Clear queue', () => {
+      clearDownloadQueue();
+    }, { disabled: state.isBusy || state.downloadQueue.length === 0 });
+
+    ui.queueActions.append(folderButton, downloadQueueButton, clearQueueButton);
+
+    const fragment = document.createDocumentFragment();
+
+    for (const queueItem of state.downloadQueue) {
+      fragment.append(createQueueItem(queueItem));
+    }
+
+    ui.queueItems.append(fragment);
   }
 
   export function createLoadingPanel(): HTMLDivElement {
@@ -242,10 +380,11 @@ namespace DexuXRenderer {
   }
 
   export function renderFeed(): void {
-    const shouldHideFeed = !state.hasAttemptedSearch && state.searchItems.length === 0;
+    const shouldHideFeed = !state.hasAttemptedSearch && state.searchItems.length === 0 && state.downloadQueue.length === 0;
     ui.feedPanel.classList.toggle('hidden', shouldHideFeed);
 
     if (shouldHideFeed) {
+      renderQueue();
       ui.searchResults.replaceChildren();
       ui.searchSummary.textContent = '';
       return;
@@ -254,6 +393,7 @@ namespace DexuXRenderer {
     ui.feedTitle.textContent = getFeedTitle();
     ui.searchSummary.textContent = getSearchSummary();
     ui.searchResults.replaceChildren();
+    renderQueue();
 
     if (state.searchItems.length === 0) {
       ui.searchResults.append(createEmptyState());
