@@ -34,6 +34,14 @@ pip install -r requirements.txt
 npm start
 ```
 
+## Packaging
+
+- `npm run package:linux` and `npm run package:win` build a standalone downloader executable with PyInstaller and bundle it into the desktop app.
+- End users on Linux and Windows do not need Python or `yt-dlp` installed to use the packaged app.
+- Build each release on its target OS so PyInstaller can produce a native backend binary for that platform.
+- The build machine still needs Python available to create the standalone backend.
+- `ffmpeg` is still expected on the target machine `PATH` for merge-heavy downloads.
+
 ## Notes
 
 - `yt-dlp` uses `ffmpeg` to merge separate video and audio streams for higher resolutions.
