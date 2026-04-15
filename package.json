@@ -6,8 +6,9 @@
   "main": "dist/electron/main.js",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "package:linux": "npm run build && electron-builder --linux AppImage --publish never",
-    "package:win": "npm run build && electron-builder --win nsis --publish never",
+    "build:backend": "node scripts/build-backend.mjs",
+    "package:linux": "npm run build && node scripts/build-backend.mjs linux && electron-builder --linux AppImage --publish never",
+    "package:win": "npm run build && node scripts/build-backend.mjs win32 && electron-builder --win nsis --publish never",
     "start": "npm run build && electron .",
     "dev": "npm run build && electron ."
   },
@@ -20,28 +21,27 @@
       "dist/**/*",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "backend",
-        "to": "backend",
-        "filter": [
-          "*.py"
-        ]
-      },
-      {
-        "from": "requirements.txt",
-        "to": "requirements.txt"
-      }
-    ],
     "linux": {
       "target": [
         "AppImage"
       ],
-      "category": "Utility"
+      "category": "Utility",
+      "extraResources": [
+        {
+          "from": "build-resources/backend/linux/downloader",
+          "to": "backend/downloader"
+        }
+      ]
     },
     "win": {
       "target": [
         "nsis"
+      ],
+      "extraResources": [
+        {
+          "from": "build-resources/backend/win32/downloader.exe",
+          "to": "backend/downloader.exe"
+        }
       ]
     }
   },

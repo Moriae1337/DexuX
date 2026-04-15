@@ -12,7 +12,7 @@ try:
 except ImportError:
     payload = {
         "type": "error",
-        "error": "Missing Python dependency: yt-dlp. Run `pip install -r requirements.txt`.",
+        "error": "Missing Python dependency: yt-dlp. Run `pip install -r requirements.txt` in development.",
     }
     print(json.dumps(payload), flush=True)
     raise SystemExit(1)

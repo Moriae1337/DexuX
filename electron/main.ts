@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, screen, type OpenDialogOptions } from 'electron';
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import * as path from 'node:path';
 
 type DownloaderMessage =
@@ -8,6 +9,8 @@ type DownloaderMessage =
   | { type: 'error'; error: string };
 
 type DownloadPayloadInput = Partial<DownloadRequest> | undefined;
+type PythonCommand = { command: string; args: string[] };
+type DownloaderCommand = { command: string; args: string[] };
 
 const DIST_ROOT = path.join(__dirname, '..');
 const PRELOAD_PATH = path.join(__dirname, 'preload.js');
@@ -29,7 +32,7 @@ const IPC_CHANNELS = {
 } as const;
 
 let mainWindow: BrowserWindow | null = null;
-let pythonCommandCache: string | null = null;
+let pythonCommandCache: PythonCommand | null = null;
 
 function getProjectRoot(): string {
   return app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..');
@@ -37,6 +40,16 @@ function getProjectRoot(): string {
 
 function getDownloaderScriptPath(): string {
   return path.join(getProjectRoot(), 'backend', 'downloader.py');
+}
+
+function getPackagedDownloaderPath(): string | null {
+  if (!app.isPackaged) {
+    return null;
+  }
+
+  const executableName = process.platform === 'win32' ? 'downloader.exe' : 'downloader';
+  const downloaderPath = path.join(getProjectRoot(), 'backend', executableName);
+  return existsSync(downloaderPath) ? downloaderPath : null;
 }
 
 function clampWindowSize(size: number, min: number, max: number, ratio: number): number {
@@ -72,23 +85,83 @@ function createWindow(): void {
   void mainWindow.loadFile(RENDERER_ENTRY);
 }
 
-function resolvePythonCommand(): string {
+function isPythonCommandAvailable(candidate: PythonCommand): boolean {
+  try {
+    const result = spawnSync(candidate.command, [...candidate.args, '--version'], {
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
+function resolvePythonCommand(): PythonCommand {
   if (pythonCommandCache) {
     return pythonCommandCache;
   }
 
-  const candidates = [process.env.PYTHON_PATH, 'python3', 'python'].filter(Boolean) as string[];
+  const candidates: PythonCommand[] = [];
+
+  if (process.env.PYTHON_PATH) {
+    candidates.push({ command: process.env.PYTHON_PATH, args: [] });
+  }
+
+  const localVenvs = ['venv', '.venv'];
+
+  for (const venvName of localVenvs) {
+    const venvPythonPath = path.join(
+      getProjectRoot(),
+      venvName,
+      process.platform === 'win32' ? 'Scripts' : 'bin',
+      process.platform === 'win32' ? 'python.exe' : 'python',
+    );
+
+    if (existsSync(venvPythonPath)) {
+      candidates.push({ command: venvPythonPath, args: [] });
+    }
+  }
+
+  if (process.platform === 'win32') {
+    candidates.push(
+      { command: 'py', args: ['-3'] },
+      { command: 'python', args: [] },
+      { command: 'python3', args: [] },
+    );
+  } else {
+    candidates.push({ command: 'python3', args: [] }, { command: 'python', args: [] });
+  }
 
   for (const candidate of candidates) {
-    const result = spawnSync(candidate, ['--version'], { encoding: 'utf8' });
-
-    if (result.status === 0) {
+    if (isPythonCommandAvailable(candidate)) {
       pythonCommandCache = candidate;
       return candidate;
     }
   }
 
-  throw new Error('Python 3 was not found. Install python3 or set the PYTHON_PATH environment variable.');
+  throw new Error(
+    'Python 3 was not found. Install python3 or set the PYTHON_PATH environment variable.',
+  );
+}
+
+function resolveDownloaderCommand(): DownloaderCommand {
+  const packagedDownloaderPath = getPackagedDownloaderPath();
+
+  if (packagedDownloaderPath) {
+    return { command: packagedDownloaderPath, args: [] };
+  }
+
+  if (app.isPackaged) {
+    throw new Error('Packaged downloader backend is missing. Reinstall the app.');
+  }
+
+  const pythonCommand = resolvePythonCommand();
+  return {
+    command: pythonCommand.command,
+    args: [...pythonCommand.args, getDownloaderScriptPath()],
+  };
 }
 
 function requireText(value: string | undefined, errorMessage: string): string {
@@ -154,17 +227,18 @@ function runDownloader<T>(
   { onEvent }: { onEvent?: (message: DownloaderMessage) => void } = {},
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    let pythonCommand: string;
+    let downloaderCommand: DownloaderCommand;
 
     try {
-      pythonCommand = resolvePythonCommand();
+      downloaderCommand = resolveDownloaderCommand();
     } catch (error) {
       reject(error);
       return;
     }
 
-    const child = spawn(pythonCommand, [getDownloaderScriptPath(), ...args], {
+    const child = spawn(downloaderCommand.command, [...downloaderCommand.args, ...args], {
       cwd: getProjectRoot(),
+      windowsHide: true,
     });
 
     let stdoutBuffer = '';
@@ -219,7 +293,7 @@ function runDownloader<T>(
       }
 
       if (code !== 0 && !settled) {
-        settleReject(new Error(stderrBuffer.trim() || `Python process exited with code ${code}.`));
+        settleReject(new Error(stderrBuffer.trim() || `Downloader process exited with code ${code}.`));
       }
     });
   });

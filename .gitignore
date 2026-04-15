@@ -5,3 +5,4 @@ __pycache__/
 downloads/
 dist/
 release/
+build-resources/
