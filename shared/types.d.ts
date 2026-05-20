@@ -31,6 +31,7 @@ interface DownloadRequest {
   url: string;
   outputDir: string;
   quality: string;
+  referer?: string;
 }
 
 interface DownloadResult {
@@ -38,6 +39,12 @@ interface DownloadResult {
   title?: string;
   path: string;
   quality: string;
+}
+
+interface CapturedMediaDownloadRequest {
+  url: string;
+  outputDir: string;
+  referer?: string;
 }
 
 interface DownloadProgress {
@@ -51,11 +58,26 @@ interface DownloadProgress {
   message?: string;
 }
 
+interface DetectedMedia {
+  url: string;
+  kind: 'mp4' | 'm3u8';
+  sourceUrl?: string | null;
+  mimeType?: string | null;
+  statusCode?: number | null;
+  confidence?: 'confirmed' | 'candidate' | 'blocked';
+}
+
 interface DownloaderApi {
   selectDownloadDirectory(): Promise<string | null>;
   searchVideos(query: string): Promise<SearchResult[]>;
   fetchVideoInfo(url: string): Promise<VideoInfo>;
   downloadVideo(payload: DownloadRequest): Promise<DownloadResult>;
+  downloadCapturedMedia(payload: CapturedMediaDownloadRequest): Promise<DownloadResult>;
+  setWindowOpacity(opacity: number): Promise<number>;
+  openExternalUrl(url: string): Promise<void>;
+  startMediaCapture(targetWebContentsId: number): Promise<void>;
+  stopMediaCapture(targetWebContentsId: number): Promise<void>;
+  onDetectedMedia(callback: (media: DetectedMedia) => void): () => void;
   onDownloadProgress(callback: (progress: DownloadProgress) => void): () => void;
 }
 
