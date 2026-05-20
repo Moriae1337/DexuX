@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.3.0...dexux-youtube-downloader-v0.4.0) (2026-05-20)
+
+
+### Features
+
+* add media catcher, tweak UI ([#17](https://github.com/Moriae1337/DexuX/issues/17)) ([bb7daf6](https://github.com/Moriae1337/DexuX/commit/bb7daf68c52b2c13f7184625b15bc14508ad660a))
+
 ## [0.3.0](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.2.1...dexux-youtube-downloader-v0.3.0) (2026-04-15)
 
 
