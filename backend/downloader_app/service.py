@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
+from urllib.request import Request, urlopen
 from typing import Any
 
 from yt_dlp import YoutubeDL
@@ -37,9 +39,13 @@ class DownloaderService:
 
         self.emitter.emit("search", results)
 
-    def download_video(self, url: str, output_dir: str, quality: str) -> None:
+    def download_video(self, url: str, output_dir: str, quality: str, referer: str | None = None) -> None:
         destination = Path(output_dir).expanduser().resolve()
         destination.mkdir(parents=True, exist_ok=True)
+
+        if self._is_direct_media_url(url):
+            self._download_direct_media(url, destination, quality, referer)
+            return
 
         with YoutubeDL(self._build_download_options(destination, quality, self._emit_download_progress)) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -53,6 +59,72 @@ class DownloaderService:
             {
                 "title": info.get("title"),
                 "path": str(final_path),
+                "quality": quality,
+            },
+        )
+
+    def _download_direct_media(self, url: str, destination: Path, quality: str, referer: str | None) -> None:
+        parsed = urlparse(url)
+        query = parse_qs(parsed.query)
+        extension = self._infer_direct_media_extension(url)
+        title = self._infer_direct_media_title(url)
+        safe_title = self._sanitize_filename(title)
+        output_path = destination / f"{safe_title}.{extension}"
+        resolved_referer = referer or (f"{parsed.scheme}://{parsed.netloc}/" if parsed.scheme and parsed.netloc else url)
+        resolved_origin = self._infer_origin_from_referer(resolved_referer)
+
+        request = Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Referer": resolved_referer,
+                "Origin": resolved_origin,
+                "Accept": "*/*",
+            },
+        )
+
+        with urlopen(request) as response, output_path.open("wb") as output_file:
+            total_header = response.headers.get("Content-Length")
+            total_bytes = int(total_header) if total_header and total_header.isdigit() else None
+            downloaded_bytes = 0
+
+            while True:
+                chunk = response.read(1024 * 256)
+                if not chunk:
+                    break
+
+                output_file.write(chunk)
+                downloaded_bytes += len(chunk)
+                percent = round((downloaded_bytes / total_bytes) * 100, 2) if total_bytes else None
+
+                self.emitter.emit(
+                    "progress",
+                    {
+                        "status": "downloading",
+                        "percent": percent,
+                        "downloaded": self._human_bytes(downloaded_bytes),
+                        "total": self._human_bytes(total_bytes),
+                        "speed": None,
+                        "eta": None,
+                    },
+                )
+
+        media_title = query.get("id", [title])[0] if query.get("id") else title
+
+        self.emitter.emit(
+            "progress",
+            {
+                "status": "processing",
+                "percent": 100,
+                "message": "Finalizing video file...",
+            },
+        )
+
+        self.emitter.emit(
+            "complete",
+            {
+                "title": media_title,
+                "path": str(output_path),
                 "quality": quality,
             },
         )
@@ -132,6 +204,46 @@ class DownloaderService:
 
     def _build_format_selector(self, quality: str) -> str:
         return QUALITY_SELECTORS.get(quality, QUALITY_SELECTORS["best"])
+
+    def _is_direct_media_url(self, url: str) -> bool:
+        lowered = url.lower()
+        return (
+            ".mp4" in lowered
+            or "mime=video/mp4" in lowered
+            or "mime=audio/mp4" in lowered
+            or lowered.endswith(".m4v")
+        )
+
+    def _infer_direct_media_extension(self, url: str) -> str:
+        lowered = url.lower()
+        if ".m4v" in lowered:
+            return "m4v"
+        return "mp4"
+
+    def _infer_direct_media_title(self, url: str) -> str:
+        parsed = urlparse(url)
+        query = parse_qs(parsed.query)
+
+        for key in ("title", "id", "filename", "name"):
+            value = query.get(key, [None])[0]
+            if value:
+                return str(unquote(value))
+
+        path_name = Path(parsed.path).name
+        if path_name:
+            return Path(unquote(path_name)).stem or "direct-media"
+
+        return "direct-media"
+
+    def _sanitize_filename(self, value: str) -> str:
+        cleaned = "".join(character if character not in '<>:"/\\|?*' else "_" for character in value).strip()
+        return cleaned[:180] or "direct-media"
+
+    def _infer_origin_from_referer(self, referer: str) -> str:
+        parsed = urlparse(referer)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+        return referer
 
     def _available_qualities(self, info: dict[str, Any]) -> list[str]:
         heights = sorted(

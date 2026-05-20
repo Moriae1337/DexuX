@@ -1,4 +1,31 @@
 namespace DexuXRenderer {
+  function getPreviewUrl(url: string): string {
+    try {
+      const parsed = new URL(url);
+
+      if (parsed.hostname.includes('youtube.com')) {
+        const videoId = parsed.searchParams.get('v');
+        return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : url;
+      }
+
+      if (parsed.hostname.includes('youtu.be')) {
+        const videoId = parsed.pathname.replace(/\//g, '').trim();
+        return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : url;
+      }
+
+      return url;
+    } catch {
+      return url;
+    }
+  }
+
+  function preserveScrollPosition(): () => void {
+    const { scrollX, scrollY } = window;
+    return () => {
+      window.scrollTo(scrollX, scrollY);
+    };
+  }
+
   function resetQueueItemForDownload(item: QueuedVideo): void {
     item.status = 'queued';
     item.progressPercent = null;
@@ -116,10 +143,12 @@ namespace DexuXRenderer {
 
   export async function selectSearchResult(url: string): Promise<void> {
     const previousSelection = getSelectionSnapshot();
+    const restoreScroll = preserveScrollPosition();
 
     state.selectedUrl = url;
     state.currentVideoInfo = state.currentVideoInfo?.webpageUrl === url ? state.currentVideoInfo : null;
     renderFeed();
+    restoreScroll();
 
     if (state.currentVideoInfo) {
       setStatus('Selected video ready to download.');
@@ -135,14 +164,33 @@ namespace DexuXRenderer {
       upsertResult(info);
       ui.queryInput.value = info.webpageUrl;
       renderFeed();
+      restoreScroll();
       setStatus('Selected video ready to download.');
     } catch (error) {
       restoreSelection(previousSelection);
       renderFeed();
+      restoreScroll();
       setStatus(getErrorMessage(error, 'Could not load that video.'));
     } finally {
       setBusy(false);
     }
+  }
+
+  export async function openVideoExternally(url: string): Promise<void> {
+    ui.videoModalFrame.src = getPreviewUrl(url);
+    ui.videoModal.classList.remove('hidden');
+    ui.videoModalOverlay.classList.remove('hidden');
+    ui.videoModalOverlay.setAttribute('aria-hidden', 'false');
+    setStatus('Video preview opened inside the app.');
+  }
+
+  export function closeVideoPreview(): void {
+    const restoreScroll = preserveScrollPosition();
+    ui.videoModal.classList.add('hidden');
+    ui.videoModalOverlay.classList.add('hidden');
+    ui.videoModalOverlay.setAttribute('aria-hidden', 'true');
+    ui.videoModalFrame.src = 'about:blank';
+    restoreScroll();
   }
 
   export async function chooseFolder(): Promise<void> {

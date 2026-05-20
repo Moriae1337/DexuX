@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, rmSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -22,11 +22,17 @@ function compileTypeScript() {
 }
 
 function copyRendererAssets() {
-  const assetFiles = ['index.html', 'styles.css'];
+  const assetFiles = ['index.html', 'styles.css', 'pretext-title.js', 'media-catcher.js'];
 
   for (const fileName of assetFiles) {
     copyFileSync(resolve(projectRoot, 'renderer', fileName), resolve(rendererDistDir, fileName));
   }
+
+  cpSync(
+    resolve(projectRoot, 'node_modules', '@chenglou', 'pretext', 'dist'),
+    resolve(rendererDistDir, 'vendor', 'pretext'),
+    { recursive: true },
+  );
 }
 
 cleanDistDirectory();

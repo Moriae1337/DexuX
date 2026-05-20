@@ -1,4 +1,6 @@
 namespace DexuXRenderer {
+  export type ThemeName = 'sunset' | 'ocean' | 'forest' | 'midnight';
+
   export type FeedMode = 'search' | 'direct' | null;
 
   export interface AppState {
@@ -16,6 +18,13 @@ namespace DexuXRenderer {
     queueRunDownloadIds: string[];
     queueRunTotal: number;
     completedQueueCount: number;
+    backgroundOpacity: number;
+    theme: ThemeName;
+  }
+
+  export interface AppearanceSettings {
+    backgroundOpacity: number;
+    theme: ThemeName;
   }
 
   export interface SelectionSnapshot {
@@ -32,6 +41,13 @@ namespace DexuXRenderer {
 
   export const CARD_HEIGHTS = ['240px', '312px', '272px', '336px', '286px'] as const;
 
+  export const THEME_OPTIONS: ReadonlyArray<{ value: ThemeName; label: string }> = [
+    { value: 'sunset', label: 'Sunset' },
+    { value: 'ocean', label: 'Ocean' },
+    { value: 'forest', label: 'Forest' },
+    { value: 'midnight', label: 'Midnight' },
+  ] as const;
+
   export const state: AppState = {
     searchItems: [],
     downloadQueue: [],
@@ -47,6 +63,8 @@ namespace DexuXRenderer {
     queueRunDownloadIds: [],
     queueRunTotal: 0,
     completedQueueCount: 0,
+    backgroundOpacity: 100,
+    theme: 'sunset',
   };
 
   export function getErrorMessage(error: unknown, fallbackMessage: string): string {

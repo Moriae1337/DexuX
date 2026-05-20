@@ -8,10 +8,74 @@
   </head>
   <body>
     <main class="app-shell">
+      <div class="shell-toolbar">
+        <button
+          id="appearance-menu-button"
+          class="appearance-menu-button"
+          type="button"
+          aria-expanded="false"
+          aria-label="Open appearance settings"
+        >
+          <svg class="gear-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M12 8.75A3.25 3.25 0 1 0 12 15.25A3.25 3.25 0 1 0 12 8.75Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.8"
+            />
+            <path
+              d="M19.4 13.5L20.65 12L19.4 10.5L17.43 10.24C17.25 9.7 17.02 9.2 16.71 8.75L17.89 7.13L16.87 6.11L15.25 7.29C14.8 6.98 14.3 6.75 13.76 6.57L13.5 4.6L12 3.35L10.5 4.6L10.24 6.57C9.7 6.75 9.2 6.98 8.75 7.29L7.13 6.11L6.11 7.13L7.29 8.75C6.98 9.2 6.75 9.7 6.57 10.24L4.6 10.5L3.35 12L4.6 13.5L6.57 13.76C6.75 14.3 6.98 14.8 7.29 15.25L6.11 16.87L7.13 17.89L8.75 16.71C9.2 17.02 9.7 17.25 10.24 17.43L10.5 19.4L12 20.65L13.5 19.4L13.76 17.43C14.3 17.25 14.8 17.02 15.25 16.71L16.87 17.89L17.89 16.87L16.71 15.25C17.02 14.8 17.25 14.3 17.43 13.76L19.4 13.5Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+            />
+          </svg>
+          <span class="sr-only">Appearance settings</span>
+        </button>
+      </div>
+
+      <div id="appearance-menu-overlay" class="appearance-menu-overlay hidden" aria-hidden="true"></div>
+
+      <section id="appearance-menu" class="appearance-menu hidden" aria-labelledby="appearance-menu-title">
+        <div class="appearance-menu-header">
+          <div>
+            <p class="eyebrow section-eyebrow">Appearance</p>
+            <h2 id="appearance-menu-title" class="appearance-title">Background</h2>
+          </div>
+          <button id="appearance-menu-close" class="close-chip" type="button">Close</button>
+        </div>
+
+        <p class="field-hint appearance-menu-copy">
+          Lower the app background and panel opacity while keeping the same color palette.
+        </p>
+
+        <label class="slider-group" for="background-opacity-slider">
+          <span class="control-label">Window look opacity</span>
+          <div class="slider-row">
+            <input id="background-opacity-slider" type="range" min="15" max="100" step="5" value="100" />
+            <span id="background-opacity-value" class="slider-value">100%</span>
+          </div>
+        </label>
+
+        <label class="theme-group" for="theme-select">
+          <span class="control-label">Theme</span>
+          <select id="theme-select" class="theme-select">
+            <option value="sunset">Sunset</option>
+            <option value="ocean">Ocean</option>
+            <option value="forest">Forest</option>
+            <option value="midnight">Midnight</option>
+          </select>
+        </label>
+      </section>
+
       <section class="masthead">
         <div class="hero-copy-block">
           <p class="eyebrow">DexuX Downloader</p>
-          <h1>Browse videos like inspiration pins, then save the one worth keeping.</h1>
+          <h1 id="hero-title" class="hero-title">Browse videos like inspiration pins, then save the one worth keeping.</h1>
           <p class="hero-copy">
             Search YouTube by title to explore a visual board of results, or paste a direct
             YouTube or TikTok link to open one card instantly and download it in the quality
@@ -33,6 +97,9 @@
             Search opens a YouTube result board. Pasting a direct YouTube or TikTok link creates
             one expanded card ready for download.
           </p>
+          <div class="search-card-actions">
+            <button id="media-catcher-open" class="browse-button" type="button">Catch media from page</button>
+          </div>
         </section>
       </section>
 
@@ -71,10 +138,68 @@
       </section>
     </main>
 
+    <div id="video-modal-overlay" class="video-modal-overlay hidden" aria-hidden="true"></div>
+    <section id="video-modal" class="video-modal hidden" aria-labelledby="video-modal-title">
+      <div class="video-modal-header">
+        <div>
+          <p class="eyebrow section-eyebrow">Preview</p>
+          <h2 id="video-modal-title" class="appearance-title">Video preview</h2>
+        </div>
+        <button id="video-modal-close" class="close-chip" type="button">Close</button>
+      </div>
+      <div class="video-modal-body">
+        <iframe
+          id="video-modal-frame"
+          class="video-modal-frame"
+          title="Video preview"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </section>
+
+    <div id="media-catcher-overlay" class="video-modal-overlay hidden" aria-hidden="true"></div>
+    <section id="media-catcher-modal" class="media-catcher-modal hidden" aria-labelledby="media-catcher-title">
+      <div class="video-modal-header">
+        <div>
+          <p class="eyebrow section-eyebrow">Tools</p>
+          <h2 id="media-catcher-title" class="appearance-title">Media Catcher</h2>
+        </div>
+        <button id="media-catcher-close" class="close-chip" type="button">Close</button>
+      </div>
+
+      <div class="media-catcher-toolbar">
+        <input id="media-catcher-url" type="text" placeholder="Paste a webpage URL to inspect..." />
+        <button id="media-catcher-go" class="search-button" type="button">Open page</button>
+      </div>
+
+      <div class="media-catcher-layout">
+        <div class="media-catcher-browser">
+          <webview id="media-catcher-view" class="media-catcher-view" partition="persist:dexux-catcher"></webview>
+        </div>
+
+        <aside class="media-catcher-results">
+          <div class="media-catcher-results-header">
+            <h3>Detected media</h3>
+            <p id="media-catcher-status" class="muted">Open a page to start scanning for direct video URLs.</p>
+          </div>
+          <div class="media-catcher-progress">
+            <div id="media-catcher-progress-bar" class="media-catcher-progress-bar"></div>
+          </div>
+          <div id="media-catcher-log" class="media-catcher-log"></div>
+          <div id="media-catcher-list" class="media-catcher-list"></div>
+        </aside>
+      </div>
+    </section>
+
     <script src="./state.js"></script>
     <script src="./ui.js"></script>
     <script src="./render.js"></script>
     <script src="./actions.js"></script>
     <script src="./app.js"></script>
+    <script type="module" src="./pretext-title.js"></script>
+    <script src="./media-catcher.js"></script>
   </body>
 </html>

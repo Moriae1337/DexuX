@@ -1,8 +1,8 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, screen, type OpenDialogOptions } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, screen, session, shell, type OpenDialogOptions } from 'electron';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { createWriteStream, existsSync } from 'node:fs';
 import * as path from 'node:path';
-import electronUpdater, { type AppUpdater, type UpdateDownloadedEvent, type UpdateInfo } from 'electron-updater';
+import { autoUpdater, type AppUpdater, type UpdateDownloadedEvent, type UpdateInfo } from 'electron-updater';
 
 type DownloaderMessage =
   | { type: 'info' | 'search' | 'complete'; data: unknown }
@@ -10,8 +10,10 @@ type DownloaderMessage =
   | { type: 'error'; error: string };
 
 type DownloadPayloadInput = Partial<DownloadRequest> | undefined;
+type CapturedMediaDownloadPayloadInput = Partial<CapturedMediaDownloadRequest> | undefined;
 type PythonCommand = { command: string; args: string[] };
 type DownloaderCommand = { command: string; args: string[] };
+const MEDIA_CATCHER_PARTITION = 'persist:dexux-catcher';
 
 const DIST_ROOT = path.join(__dirname, '..');
 const PRELOAD_PATH = path.join(__dirname, 'preload.js');
@@ -30,13 +32,105 @@ const IPC_CHANNELS = {
   searchVideos: 'search-videos',
   downloadVideo: 'download-video',
   downloadProgress: 'download-progress',
+  setWindowOpacity: 'set-window-opacity',
+  openExternalUrl: 'open-external-url',
+  downloadCapturedMedia: 'download-captured-media',
+  startMediaCapture: 'start-media-capture',
+  stopMediaCapture: 'stop-media-capture',
+  detectedMedia: 'detected-media',
 } as const;
 
 let mainWindow: BrowserWindow | null = null;
 let pythonCommandCache: PythonCommand | null = null;
 let updateAvailableNoticeShown = false;
+const EMBED_REFERRER = 'https://dexux.app/';
+const mediaCaptureTargets = new Map<number, Set<number>>();
 
-const { autoUpdater } = electronUpdater;
+function detectMediaKind(url: string, mimeType?: string | null): 'mp4' | 'm3u8' | null {
+  const normalizedUrl = url.toLowerCase();
+  const normalizedMime = (mimeType ?? '').toLowerCase();
+
+  if (
+    normalizedUrl.includes('.m3u8') ||
+    normalizedMime.includes('application/vnd.apple.mpegurl') ||
+    normalizedMime.includes('application/x-mpegurl')
+  ) {
+    return 'm3u8';
+  }
+
+  if (
+    normalizedUrl.includes('.mp4') ||
+    normalizedMime.includes('video/mp4') ||
+    normalizedMime.includes('audio/mp4')
+  ) {
+    return 'mp4';
+  }
+
+  if (normalizedUrl.includes('videoplayback') && normalizedUrl.includes('mime=video')) {
+    return 'mp4';
+  }
+
+  return null;
+}
+
+function getMediaConfidence(
+  kind: 'mp4' | 'm3u8',
+  mimeType?: string | null,
+  statusCode?: number | null,
+): 'confirmed' | 'candidate' | 'blocked' {
+  const normalizedMime = (mimeType ?? '').toLowerCase();
+
+  if (statusCode != null && statusCode >= 400) {
+    return 'blocked';
+  }
+
+  if (kind === 'm3u8') {
+    if (
+      normalizedMime.includes('application/vnd.apple.mpegurl') ||
+      normalizedMime.includes('application/x-mpegurl') ||
+      statusCode === 200 ||
+      statusCode === 206
+    ) {
+      return 'confirmed';
+    }
+
+    return mimeType ? 'candidate' : 'candidate';
+  }
+
+  if (kind === 'mp4') {
+    if (
+      normalizedMime.includes('video/mp4') ||
+      normalizedMime.includes('audio/mp4') ||
+      statusCode === 200 ||
+      statusCode === 206
+    ) {
+      return 'confirmed';
+    }
+
+    return mimeType ? 'candidate' : 'candidate';
+  }
+
+  return 'candidate';
+}
+
+function getListenerContents(listenerContentsId: number): Electron.WebContents | undefined {
+  return BrowserWindow.getAllWindows()
+    .map((window) => window.webContents)
+    .find((contents) => contents.id === listenerContentsId);
+}
+
+function emitDetectedMedia(
+  targetListeners: Set<number>,
+  media: DetectedMedia,
+): void {
+  for (const listenerContentsId of targetListeners) {
+    getListenerContents(listenerContentsId)?.send(IPC_CHANNELS.detectedMedia, media);
+  }
+}
+
+function clampWindowOpacity(opacity: number): number {
+  return Math.max(0.15, Math.min(1, opacity));
+}
 
 function getProjectRoot(): string {
   return app.isPackaged ? process.resourcesPath : path.join(__dirname, '..', '..');
@@ -78,15 +172,167 @@ function createWindow(): void {
     minWidth: WINDOW_LIMITS.minWidth,
     minHeight: WINDOW_LIMITS.minHeight,
     autoHideMenuBar: true,
+    transparent: true,
+    backgroundColor: '#00000000',
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
     },
   });
 
   mainWindow.removeMenu();
   void mainWindow.loadFile(RENDERER_ENTRY);
+}
+
+function inferCapturedMediaFilename(urlValue: string): string {
+  try {
+    const parsed = new URL(urlValue);
+    const mime = parsed.searchParams.get('mime') ?? '';
+    const id = parsed.searchParams.get('id') ?? 'captured-media';
+    const extension = mime.includes('audio/mp4') || mime.includes('video/mp4') ? 'mp4' : 'bin';
+    return `${id}.${extension}`;
+  } catch {
+    return 'captured-media.bin';
+  }
+}
+
+function resolveCapturedMediaDownloadPayload(payload: CapturedMediaDownloadPayloadInput): CapturedMediaDownloadRequest {
+  return {
+    url: requireText(payload?.url, 'A media URL is required.'),
+    outputDir: requireText(payload?.outputDir, 'Choose a download folder first.'),
+    referer: payload?.referer?.trim() || undefined,
+  };
+}
+
+async function downloadCapturedMediaWithSession(
+  payload: CapturedMediaDownloadRequest,
+): Promise<DownloadResult> {
+  const catcherSession = session.fromPartition(MEDIA_CATCHER_PARTITION);
+  const outputDir = path.resolve(payload.outputDir);
+  const targetPath = path.join(outputDir, inferCapturedMediaFilename(payload.url));
+
+  return new Promise((resolve, reject) => {
+    const request = net.request({
+      method: 'GET',
+      session: catcherSession,
+      url: payload.url,
+    });
+
+    if (payload.referer) {
+      request.setHeader('Referer', payload.referer);
+
+      try {
+        const parsedReferer = new URL(payload.referer);
+        request.setHeader('Origin', `${parsedReferer.protocol}//${parsedReferer.host}`);
+      } catch {
+        // Ignore invalid referer values.
+      }
+    }
+
+    request.on('response', (response) => {
+      if ((response.statusCode ?? 0) >= 400) {
+        reject(new Error(`HTTP Error ${response.statusCode}: Forbidden`));
+        return;
+      }
+
+      const output = createWriteStream(targetPath);
+
+      response.on('error', reject);
+      output.on('error', reject);
+      response.on('data', (chunk: Buffer) => {
+        output.write(chunk);
+      });
+      response.on('end', () => {
+        output.end();
+      });
+      output.on('close', () => {
+        resolve({
+          path: targetPath,
+          quality: 'best',
+          title: path.basename(targetPath),
+        });
+      });
+    });
+
+    request.on('error', reject);
+    request.end();
+  });
+}
+
+function registerEmbeddedMediaHeaders(): void {
+  const mediaRequestFilter = {
+    urls: [
+      'https://www.youtube.com/*',
+      'https://*.youtube.com/*',
+      'https://www.youtube-nocookie.com/*',
+      'https://*.youtube-nocookie.com/*',
+      'https://*.googlevideo.com/*',
+      'https://*.ytimg.com/*',
+    ],
+  };
+
+  const registerSessionListeners = (targetSession: Electron.Session): void => {
+    targetSession.webRequest.onBeforeSendHeaders(mediaRequestFilter, (details, callback) => {
+      callback({
+        requestHeaders: {
+          ...details.requestHeaders,
+          Referer: details.requestHeaders.Referer || EMBED_REFERRER,
+          Origin: details.requestHeaders.Origin || EMBED_REFERRER,
+        },
+      });
+    });
+
+    targetSession.webRequest.onBeforeRequest({ urls: ['*://*/*'] }, (details, callback) => {
+      const targetListeners = details.webContentsId != null ? mediaCaptureTargets.get(details.webContentsId) : undefined;
+
+      if (targetListeners && details.url) {
+        const detectedKind = detectMediaKind(details.url);
+
+        if (detectedKind) {
+          emitDetectedMedia(targetListeners, {
+            url: details.url,
+            kind: detectedKind,
+            sourceUrl: details.referrer || null,
+            mimeType: null,
+            statusCode: null,
+            confidence: 'candidate',
+          } satisfies DetectedMedia);
+        }
+      }
+
+      callback({});
+    });
+
+    targetSession.webRequest.onResponseStarted({ urls: ['*://*/*'] }, (details) => {
+      const targetListeners = details.webContentsId != null ? mediaCaptureTargets.get(details.webContentsId) : undefined;
+
+      if (!targetListeners || !details.url) {
+        return;
+      }
+
+      const contentTypeHeader = details.responseHeaders?.['content-type'] ?? details.responseHeaders?.['Content-Type'];
+      const mimeType = Array.isArray(contentTypeHeader) ? contentTypeHeader[0] : null;
+      const detectedKind = detectMediaKind(details.url, mimeType);
+
+      if (!detectedKind) {
+        return;
+      }
+
+      emitDetectedMedia(targetListeners, {
+        url: details.url,
+        kind: detectedKind,
+        sourceUrl: details.referrer || null,
+        mimeType,
+        statusCode: details.statusCode ?? null,
+        confidence: getMediaConfidence(detectedKind, mimeType, details.statusCode ?? null),
+      } satisfies DetectedMedia);
+    });
+  };
+
+  registerSessionListeners(session.defaultSession);
+  registerSessionListeners(session.fromPartition(MEDIA_CATCHER_PARTITION));
 }
 
 function showMessageBox(options: Electron.MessageBoxOptions): Promise<Electron.MessageBoxReturnValue> {
@@ -294,6 +540,7 @@ function resolveDownloadPayload(payload: DownloadPayloadInput): DownloadRequest 
     url: requireText(payload?.url, 'A video URL is required.'),
     outputDir: requireText(payload?.outputDir, 'Choose a download folder first.'),
     quality: payload?.quality || 'best',
+    referer: payload?.referer?.trim() || undefined,
   };
 }
 
@@ -426,9 +673,9 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.downloadVideo, async (_event, payload: DownloadPayloadInput) => {
-    const { downloadId, url, outputDir, quality } = resolveDownloadPayload(payload);
+    const { downloadId, url, outputDir, quality, referer } = resolveDownloadPayload(payload);
 
-    return runDownloader<DownloadResult>(['download', url, outputDir, quality], {
+    return runDownloader<DownloadResult>(['download', url, outputDir, quality, referer || ''], {
       onEvent(message) {
         if (message.type === 'progress') {
           mainWindow?.webContents.send(IPC_CHANNELS.downloadProgress, {
@@ -442,11 +689,46 @@ function registerIpcHandlers(): void {
       downloadId,
     }));
   });
+
+  ipcMain.handle(IPC_CHANNELS.setWindowOpacity, async (_event, opacity: number) => {
+    const nextOpacity = clampWindowOpacity(Number(opacity));
+    mainWindow?.setOpacity(nextOpacity);
+    return nextOpacity;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.openExternalUrl, async (_event, url: string) => {
+    await shell.openExternal(requireText(url, 'A URL is required.'));
+  });
+
+  ipcMain.handle(IPC_CHANNELS.downloadCapturedMedia, async (_event, payload: CapturedMediaDownloadPayloadInput) => {
+    return downloadCapturedMediaWithSession(resolveCapturedMediaDownloadPayload(payload));
+  });
+
+  ipcMain.handle(IPC_CHANNELS.startMediaCapture, async (event, targetWebContentsId: number) => {
+    const listeners = mediaCaptureTargets.get(targetWebContentsId) ?? new Set<number>();
+    listeners.add(event.sender.id);
+    mediaCaptureTargets.set(targetWebContentsId, listeners);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.stopMediaCapture, async (event, targetWebContentsId: number) => {
+    const listeners = mediaCaptureTargets.get(targetWebContentsId);
+
+    if (!listeners) {
+      return;
+    }
+
+    listeners.delete(event.sender.id);
+
+    if (listeners.size === 0) {
+      mediaCaptureTargets.delete(targetWebContentsId);
+    }
+  });
 }
 
 void app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   registerIpcHandlers();
+  registerEmbeddedMediaHeaders();
   createWindow();
   setupAutoUpdates();
 

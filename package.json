@@ -62,6 +62,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@chenglou/pretext": "^0.0.5",
     "electron-updater": "^6.8.3"
   }
 }

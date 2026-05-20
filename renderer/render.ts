@@ -1,4 +1,50 @@
 namespace DexuXRenderer {
+  function getVideoPreviewUrl(url: string): string | null {
+    try {
+      const parsed = new URL(url);
+
+      if (parsed.hostname.includes('youtube.com')) {
+        const videoId = parsed.searchParams.get('v');
+        return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : null;
+      }
+
+      if (parsed.hostname.includes('youtu.be')) {
+        const videoId = parsed.pathname.replace(/\//g, '').trim();
+        return videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : null;
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  function createPreviewPanel(url: string): HTMLDivElement {
+    const panel = document.createElement('div');
+    panel.className = 'video-preview-panel';
+
+    const previewUrl = getVideoPreviewUrl(url);
+
+    if (previewUrl) {
+      const iframe = document.createElement('iframe');
+      iframe.className = 'video-preview-frame';
+      iframe.src = previewUrl;
+      iframe.title = 'Video preview';
+      iframe.loading = 'lazy';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+      iframe.allowFullscreen = true;
+      panel.append(iframe);
+      return panel;
+    }
+
+    const fallback = document.createElement('p');
+    fallback.className = 'video-preview-fallback';
+    fallback.textContent = 'Inline preview is available for YouTube videos. Open the source to preview this one.';
+    panel.append(fallback);
+    return panel;
+  }
+
   export function createQueueActionButton(
     label: string,
     onClick: () => void,
@@ -51,6 +97,9 @@ namespace DexuXRenderer {
     previewButton.type = 'button';
     previewButton.className = 'pin-card-button';
     previewButton.disabled = state.isBusy;
+    previewButton.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+    });
     previewButton.addEventListener('click', () => {
       void selectSearchResult(result.webpageUrl);
     });
@@ -85,12 +134,17 @@ namespace DexuXRenderer {
     openAction.className = 'pin-action';
     openAction.textContent = 'Open details';
 
+    const previewLinkButton = createQueueActionButton('Preview in app', () => {
+      void openVideoExternally(result.webpageUrl);
+    });
+    previewLinkButton.disabled = state.isBusy;
+
     const queueButton = createQueueActionButton(isQueued(result.webpageUrl) ? 'Queued' : 'Add to queue', () => {
       addVideoToQueue(result);
     });
     queueButton.disabled = state.isBusy || isQueued(result.webpageUrl);
 
-    footerActions.append(openAction, queueButton);
+    footerActions.append(openAction, previewLinkButton, queueButton);
     footer.append(detail, footerActions);
     card.append(previewButton, footer);
     return card;
@@ -333,9 +387,6 @@ namespace DexuXRenderer {
     const content = document.createElement('div');
     content.className = 'expanded-layout';
 
-    const media = createMedia(selectedVideo, '360px');
-    media.classList.add('expanded-media');
-
     const copy = document.createElement('div');
     copy.className = 'expanded-copy';
 
@@ -351,7 +402,16 @@ namespace DexuXRenderer {
     url.className = 'expanded-link';
     url.textContent = result.webpageUrl;
 
-    copy.append(title, meta, url);
+    const previewActions = document.createElement('div');
+    previewActions.className = 'expanded-preview-actions';
+
+    const openButton = createQueueActionButton('Open in app', () => {
+      void openVideoExternally(result.webpageUrl);
+    }, { variant: 'primary' });
+    openButton.disabled = state.isBusy;
+
+    previewActions.append(openButton);
+    copy.append(title, meta, url, previewActions);
 
     if (state.currentVideoInfo) {
       copy.append(createDownloadControls(result.webpageUrl, state.currentVideoInfo));
@@ -359,7 +419,7 @@ namespace DexuXRenderer {
       copy.append(createLoadingPanel());
     }
 
-    content.append(media, copy);
+    content.append(createPreviewPanel(result.webpageUrl), copy);
     card.append(header, content);
     return card;
   }
