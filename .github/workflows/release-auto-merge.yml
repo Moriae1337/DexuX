@@ -11,7 +11,7 @@ permissions:
 jobs:
   release-please-merge:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.user.login == 'github-actions[bot]' && startsWith(github.event.pull_request.head.ref, 'release-please-branch-')
+    if: github.event.pull_request.user.login == 'github-actions[bot]' && startsWith(github.event.pull_request.head.ref, 'release-please-')
     steps:
       - name: Approve Release PR
         run: gh pr review --approve "$PR_URL"
