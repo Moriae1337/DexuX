@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.5.1...dexux-youtube-downloader-v0.5.2) (2026-07-20)
+
+
+### Bug Fixes
+
+* provide AppImage bundle icons ([#42](https://github.com/Moriae1337/DexuX/issues/42)) ([c4774ab](https://github.com/Moriae1337/DexuX/commit/c4774abb3f0da8aedd8821fd62659dcb3ce845ca))
+
 ## [0.5.1](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.5.0...dexux-youtube-downloader-v0.5.1) (2026-07-20)
 
 
