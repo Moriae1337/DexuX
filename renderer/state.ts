@@ -8,6 +8,7 @@ namespace DexuXRenderer {
     downloadQueue: QueuedVideo[];
     selectedUrl: string | null;
     currentVideoInfo: VideoInfo | null;
+    selectionStatus: 'idle' | 'loading';
     currentQuality: string;
     downloadFolder: string;
     lastSearchQuery: string;
@@ -32,12 +33,7 @@ namespace DexuXRenderer {
     currentVideoInfo: VideoInfo | null;
   }
 
-  export const QUALITY_OPTIONS = [
-    { value: 'best', label: 'Best available' },
-    { value: '1080p', label: 'Up to 1080p' },
-    { value: '720p', label: 'Up to 720p' },
-    { value: '480p', label: 'Up to 480p' },
-  ] as const;
+  export const BEST_QUALITY = 'best';
 
   export const CARD_HEIGHTS = ['240px', '312px', '272px', '336px', '286px'] as const;
 
@@ -53,7 +49,8 @@ namespace DexuXRenderer {
     downloadQueue: [],
     selectedUrl: null,
     currentVideoInfo: null,
-    currentQuality: 'best',
+    selectionStatus: 'idle',
+    currentQuality: BEST_QUALITY,
     downloadFolder: '',
     lastSearchQuery: '',
     feedMode: null,
@@ -85,7 +82,32 @@ namespace DexuXRenderer {
   }
 
   export function getQualityLabel(quality: string): string {
-    return QUALITY_OPTIONS.find((option) => option.value === quality)?.label ?? quality;
+    return quality === BEST_QUALITY ? 'Best available' : `Up to ${quality}`;
+  }
+
+  export function getQualityOptions(videoInfo: VideoInfo | null): Array<{ value: string; label: string }> {
+    const qualities = new Set<string>();
+
+    for (const quality of videoInfo?.availableQualities ?? []) {
+      const normalizedQuality = quality.toLowerCase();
+
+      if (/^\d{3,4}p$/.test(normalizedQuality)) {
+        qualities.add(normalizedQuality);
+      }
+    }
+
+    return [
+      { value: BEST_QUALITY, label: getQualityLabel(BEST_QUALITY) },
+      ...Array.from(qualities)
+        .sort((left, right) => Number(right.replace('p', '')) - Number(left.replace('p', '')))
+        .map((quality) => ({ value: quality, label: getQualityLabel(quality) })),
+    ];
+  }
+
+  export function getValidQualityForVideo(videoInfo: VideoInfo | null, preferredQuality: string): string {
+    const options = getQualityOptions(videoInfo);
+
+    return options.some((option) => option.value === preferredQuality) ? preferredQuality : BEST_QUALITY;
   }
 
   export function getQueueStatusDetail(item: QueuedVideo): QueueItemStatusDetail {

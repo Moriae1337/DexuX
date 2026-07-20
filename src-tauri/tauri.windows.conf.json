@@ -1,0 +1,21 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "DexuX Downloader",
+        "width": 1180,
+        "height": 860,
+        "minWidth": 860,
+        "minHeight": 620,
+        "transparent": false,
+        "decorations": true
+      }
+    ]
+  },
+  "bundle": {
+    "resources": {
+      "../build-resources/backend/win32/downloader.exe": "backend/downloader.exe"
+    }
+  }
+}

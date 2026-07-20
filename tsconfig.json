@@ -2,7 +2,6 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
-    "moduleResolution": "node",
     "ignoreDeprecations": "6.0",
     "lib": ["ES2022", "DOM"],
     "strict": true,
@@ -13,5 +12,5 @@
     "rootDir": ".",
     "outDir": "dist"
   },
-  "include": ["electron/**/*.ts", "renderer/**/*.ts", "shared/**/*.d.ts"]
+  "include": ["renderer/**/*.ts", "shared/**/*.d.ts"]
 }

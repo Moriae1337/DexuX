@@ -9,7 +9,6 @@
   const progressBar = document.getElementById('media-catcher-progress-bar');
   const logRoot = document.getElementById('media-catcher-log');
   const list = document.getElementById('media-catcher-list');
-  const webview = document.getElementById('media-catcher-view');
   const queryInput = document.getElementById('video-query');
 
   if (
@@ -23,14 +22,12 @@
     !(progressBar instanceof HTMLDivElement) ||
     !(logRoot instanceof HTMLDivElement) ||
     !(list instanceof HTMLDivElement) ||
-    !(queryInput instanceof HTMLInputElement) ||
-    !(webview instanceof HTMLElement)
+    !(queryInput instanceof HTMLInputElement)
   ) {
     return;
   }
 
   const foundUrls = new Map();
-  let activeContentsId = null;
   let logEntries = [];
 
   const setStatus = (message) => {
@@ -236,21 +233,6 @@
     );
   };
 
-  const stopCapture = async () => {
-    if (activeContentsId == null) {
-      return;
-    }
-
-    try {
-      await window.downloaderApi.stopMediaCapture(activeContentsId);
-      pushLog(`Stopped capture for webContents ${activeContentsId}.`);
-    } catch {
-      // Ignore cleanup issues.
-    }
-
-    activeContentsId = null;
-  };
-
   const resetResults = () => {
     foundUrls.clear();
     renderList();
@@ -259,22 +241,7 @@
     setProgress(0);
   };
 
-  const startCapture = async () => {
-    const getWebContentsId = webview.getWebContentsId;
-
-    if (typeof getWebContentsId !== 'function') {
-      pushLog('This Electron build does not expose webview capture hooks.');
-      return;
-    }
-
-    await stopCapture();
-    activeContentsId = getWebContentsId.call(webview);
-    await window.downloaderApi.startMediaCapture(activeContentsId);
-    setProgress(35);
-    pushLog(`Started capture for webContents ${activeContentsId}.`);
-  };
-
-  const openPage = () => {
+  const openPage = async () => {
     const nextUrl = normalizePageUrl(urlInput.value);
 
     if (!nextUrl) {
@@ -284,54 +251,40 @@
     }
 
     resetResults();
-    setStatus(`Opening ${nextUrl}...`);
+    setStatus(`Inspecting ${nextUrl}...`);
     setProgress(10);
-    pushLog(`Opening page: ${nextUrl}`);
-    webview.src = nextUrl;
-  };
+    pushLog(`Inspecting page: ${nextUrl}`);
 
-  const removeDetectedMediaListener = window.downloaderApi.onDetectedMedia((media) => {
-    const existing = foundUrls.get(media.url);
-    const isConfirmed = media.confidence === 'confirmed';
-    const isBlocked = media.confidence === 'blocked';
+    try {
+      const detectedMedia = await window.downloaderApi.inspectMediaUrl(nextUrl);
 
-    if (!existing) {
-      foundUrls.set(media.url, media);
-      if (isConfirmed) {
-        renderList();
+      for (const media of detectedMedia) {
+        foundUrls.set(media.url, media);
+        pushLog(
+          `${media.confidence === 'confirmed' ? 'Confirmed' : 'Candidate'} ${media.kind.toUpperCase()} URL${
+            media.mimeType ? ` (${media.mimeType})` : ''
+          }.`,
+        );
       }
 
-      pushLog(
-        `${isBlocked ? 'Blocked' : isConfirmed ? 'Confirmed' : 'Candidate'} ${media.kind.toUpperCase()} URL${
-          media.mimeType ? ` (${media.mimeType})` : ''
-        }${media.statusCode ? ` [${media.statusCode}]` : ''}.`,
-      );
-    } else if ((!existing.mimeType && media.mimeType) || (!existing.statusCode && media.statusCode)) {
-      foundUrls.set(media.url, {
-        ...existing,
-        mimeType: media.mimeType ?? existing.mimeType ?? null,
-        statusCode: media.statusCode ?? existing.statusCode ?? null,
-        confidence: media.confidence ?? existing.confidence ?? 'candidate',
-      });
-      if (media.confidence === 'confirmed' || existing.confidence === 'confirmed') {
-        renderList();
+      renderList();
+
+      if (detectedMedia.length === 0) {
+        setStatus('No direct MP4 or HLS media URLs were found for that page.');
+        setProgress(0);
+        pushLog('Inspection finished without direct media URLs.');
+        return;
       }
-    }
 
-    const confirmedCount = Array.from(foundUrls.values()).filter((item) => item.confidence === 'confirmed').length;
-    const blockedCount = Array.from(foundUrls.values()).filter((item) => item.confidence === 'blocked').length;
-
-    if (confirmedCount > 0) {
-      setStatus(`Found ${confirmedCount} downloadable media URL${confirmedCount === 1 ? '' : 's'}.`);
+      setStatus(`Found ${detectedMedia.length} downloadable media URL${detectedMedia.length === 1 ? '' : 's'}.`);
       setProgress(100);
-    } else if (blockedCount > 0) {
-      setStatus('Saw media-like requests, but they were blocked or not directly downloadable.');
-      setProgress(78);
-    } else {
-      setStatus('Saw media-like requests, but none are confirmed downloadable yet.');
-      setProgress(74);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Media inspection failed.';
+      setStatus(message);
+      setProgress(0);
+      pushLog(`Inspection failed: ${message}`);
     }
-  });
+  };
 
   openButton.addEventListener('click', () => {
     setOpen(true);
@@ -345,59 +298,12 @@
     setOpen(false);
   });
 
-  goButton.addEventListener('click', openPage);
+  goButton.addEventListener('click', () => {
+    void openPage();
+  });
   urlInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
-      openPage();
+      void openPage();
     }
-  });
-
-  webview.addEventListener('dom-ready', () => {
-    setStatus('Page shell loaded. Starting request capture...');
-    setProgress(25);
-    pushLog('Webview DOM is ready.');
-    void startCapture();
-  });
-
-  webview.addEventListener('did-navigate', () => {
-    const currentUrl = webview.getURL?.();
-    if (currentUrl) {
-      urlInput.value = currentUrl;
-      setStatus(`Scanning ${currentUrl} for direct video streams...`);
-      setProgress(55);
-      pushLog(`Navigated to ${currentUrl}`);
-    }
-  });
-
-  webview.addEventListener('did-start-loading', () => {
-    setStatus('Loading page...');
-    setProgress(15);
-    pushLog('Page started loading.');
-  });
-
-  webview.addEventListener('did-stop-loading', () => {
-    if (foundUrls.size === 0) {
-      setStatus('Page loaded. Waiting for playable media requests...');
-      setProgress(70);
-      pushLog('Page finished loading. No media found yet.');
-      return;
-    }
-
-    pushLog('Page finished loading.');
-  });
-
-  webview.addEventListener('did-fail-load', (event) => {
-    if (event.errorCode === -3) {
-      return;
-    }
-
-    setStatus(`Load failed: ${event.errorDescription}`);
-    setProgress(0);
-    pushLog(`Load failed for ${event.validatedURL || 'page'}: ${event.errorDescription}`);
-  });
-
-  window.addEventListener('beforeunload', () => {
-    removeDetectedMediaListener();
-    void stopCapture();
   });
 })();

@@ -1,4 +1,6 @@
 namespace DexuXRenderer {
+  let selectionRequestId = 0;
+
   function getPreviewUrl(url: string): string {
     try {
       const parsed = new URL(url);
@@ -26,6 +28,16 @@ namespace DexuXRenderer {
     };
   }
 
+  function waitForNextPaint(): Promise<void> {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve();
+        });
+      });
+    });
+  }
+
   function resetQueueItemForDownload(item: QueuedVideo): void {
     item.status = 'queued';
     item.progressPercent = null;
@@ -35,7 +47,12 @@ namespace DexuXRenderer {
   }
 
   export function addVideoToQueue(result: SearchResult): void {
-    const added = enqueueVideo(result, state.currentQuality);
+    const selectedVideoInfo =
+      state.selectedUrl === result.webpageUrl && state.currentVideoInfo?.webpageUrl === result.webpageUrl
+        ? state.currentVideoInfo
+        : null;
+    const quality = selectedVideoInfo ? getValidQualityForVideo(selectedVideoInfo, state.currentQuality) : BEST_QUALITY;
+    const added = enqueueVideo(result, quality);
     renderFeed();
 
     if (!added) {
@@ -70,9 +87,13 @@ namespace DexuXRenderer {
   }
 
   export function clearSelection(): void {
+    selectionRequestId += 1;
     state.selectedUrl = null;
     state.currentVideoInfo = null;
-    renderFeed();
+    state.selectionStatus = 'idle';
+    renderSelectionPanel();
+    syncSelectedCardState();
+    setStatus('Selection closed.');
   }
 
   export async function loadDirectVideo(url: string, pendingMessage: string, successMessage: string): Promise<void> {
@@ -90,6 +111,8 @@ namespace DexuXRenderer {
       state.lastSearchQuery = url;
       state.selectedUrl = info.webpageUrl;
       state.currentVideoInfo = info;
+      state.selectionStatus = 'idle';
+      state.currentQuality = getValidQualityForVideo(info, state.currentQuality);
       state.searchItems = [info];
       ui.queryInput.value = info.webpageUrl;
       renderFeed();
@@ -114,6 +137,7 @@ namespace DexuXRenderer {
       state.searchItems = results;
       state.selectedUrl = null;
       state.currentVideoInfo = null;
+      state.selectionStatus = 'idle';
       renderFeed();
       setStatus(results.length > 0 ? 'Search results loaded. Select a video to continue.' : 'No videos matched your search.');
     } catch (error) {
@@ -142,12 +166,20 @@ namespace DexuXRenderer {
   }
 
   export async function selectSearchResult(url: string): Promise<void> {
+    if (state.selectedUrl === url && state.selectionStatus === 'loading') {
+      return;
+    }
+
     const previousSelection = getSelectionSnapshot();
     const restoreScroll = preserveScrollPosition();
+    const requestId = selectionRequestId + 1;
+    selectionRequestId = requestId;
 
     state.selectedUrl = url;
     state.currentVideoInfo = state.currentVideoInfo?.webpageUrl === url ? state.currentVideoInfo : null;
-    renderFeed();
+    state.selectionStatus = state.currentVideoInfo ? 'idle' : 'loading';
+    renderSelectionPanel();
+    syncSelectedCardState();
     restoreScroll();
 
     if (state.currentVideoInfo) {
@@ -155,24 +187,36 @@ namespace DexuXRenderer {
       return;
     }
 
-    setBusy(true);
     setStatus('Loading video details...');
+    await waitForNextPaint();
 
     try {
       const info = await window.downloaderApi.fetchVideoInfo(url);
+
+      if (selectionRequestId !== requestId || state.selectedUrl !== url) {
+        return;
+      }
+
       state.currentVideoInfo = info;
+      state.selectionStatus = 'idle';
+      state.currentQuality = getValidQualityForVideo(info, state.currentQuality);
       upsertResult(info);
       ui.queryInput.value = info.webpageUrl;
-      renderFeed();
+      renderSelectionPanel({ preservePreview: true });
+      syncSelectedCardState();
       restoreScroll();
       setStatus('Selected video ready to download.');
     } catch (error) {
+      if (selectionRequestId !== requestId) {
+        return;
+      }
+
       restoreSelection(previousSelection);
-      renderFeed();
+      state.selectionStatus = 'idle';
+      renderSelectionPanel();
+      syncSelectedCardState();
       restoreScroll();
       setStatus(getErrorMessage(error, 'Could not load that video.'));
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -201,7 +245,8 @@ namespace DexuXRenderer {
     }
 
     state.downloadFolder = selected;
-    renderFeed();
+    renderQueue();
+    renderSelectionPanel({ preservePreview: true });
     setStatus(`Download folder set to ${selected}`);
   }
 
@@ -212,8 +257,10 @@ namespace DexuXRenderer {
 
     const info = await window.downloaderApi.fetchVideoInfo(url);
     state.currentVideoInfo = info;
+    state.currentQuality = getValidQualityForVideo(info, state.currentQuality);
     upsertResult(info);
-    renderFeed();
+    renderSelectionPanel({ preservePreview: true });
+    syncSelectedCardState();
   }
 
   export async function downloadSelectedVideo(url: string): Promise<void> {
@@ -232,6 +279,7 @@ namespace DexuXRenderer {
 
     try {
       await ensureSelectedVideoInfo(url);
+      state.currentQuality = getValidQualityForVideo(state.currentVideoInfo, state.currentQuality);
 
       const result = await window.downloaderApi.downloadVideo({
         url,

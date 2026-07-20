@@ -164,6 +164,8 @@ function buildBackendExecutable(pythonPath, platformConfig) {
       specPath,
       '--collect-all',
       'yt_dlp',
+      '--collect-all',
+      'imageio_ffmpeg',
       backendEntryPath,
     ],
     { windowsHide: true },

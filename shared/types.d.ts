@@ -75,6 +75,7 @@ interface DownloaderApi {
   downloadCapturedMedia(payload: CapturedMediaDownloadRequest): Promise<DownloadResult>;
   setWindowOpacity(opacity: number): Promise<number>;
   openExternalUrl(url: string): Promise<void>;
+  inspectMediaUrl(url: string): Promise<DetectedMedia[]>;
   startMediaCapture(targetWebContentsId: number): Promise<void>;
   stopMediaCapture(targetWebContentsId: number): Promise<void>;
   onDetectedMedia(callback: (media: DetectedMedia) => void): () => void;

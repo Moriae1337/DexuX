@@ -91,6 +91,13 @@ namespace DexuXRenderer {
   export function createCompactCard(result: SearchResult, index: number): HTMLElement {
     const card = document.createElement('article');
     card.className = 'pin-card compact-card';
+    card.dataset.url = result.webpageUrl;
+    const isSelected = state.selectedUrl === result.webpageUrl;
+
+    if (isSelected) {
+      card.classList.add(state.selectionStatus === 'loading' ? 'is-loading-selection' : 'is-selected');
+    }
+
     card.style.setProperty('--stagger-index', String(index));
 
     const previewButton = document.createElement('button');
@@ -105,6 +112,13 @@ namespace DexuXRenderer {
     });
 
     const media = createMedia(result, getCardHeight(index));
+
+    if (isSelected) {
+      const selectedBadge = document.createElement('span');
+      selectedBadge.className = 'selected-card-badge';
+      selectedBadge.textContent = state.selectionStatus === 'loading' ? 'Loading' : 'Selected';
+      media.append(selectedBadge);
+    }
 
     const body = document.createElement('div');
     body.className = 'pin-card-copy';
@@ -150,7 +164,34 @@ namespace DexuXRenderer {
     return card;
   }
 
-  export function createQualityControl(): HTMLLabelElement {
+  export function syncSelectedCardState(): void {
+    const cards = ui.searchResults.querySelectorAll<HTMLElement>('.compact-card');
+
+    for (const card of cards) {
+      const isSelected = card.dataset.url === state.selectedUrl;
+      const isLoading = isSelected && state.selectionStatus === 'loading';
+      card.classList.toggle('is-selected', isSelected && !isLoading);
+      card.classList.toggle('is-loading-selection', isLoading);
+
+      const media = card.querySelector('.pin-media');
+      const existingBadge = card.querySelector<HTMLElement>('.selected-card-badge');
+
+      if (!isSelected) {
+        existingBadge?.remove();
+        continue;
+      }
+
+      const badge = existingBadge ?? document.createElement('span');
+      badge.className = 'selected-card-badge';
+      badge.textContent = isLoading ? 'Loading' : 'Selected';
+
+      if (!existingBadge) {
+        media?.append(badge);
+      }
+    }
+  }
+
+  export function createQualityControl(videoInfo: VideoInfo): HTMLLabelElement {
     const qualityGroup = document.createElement('label');
     qualityGroup.className = 'control-group';
 
@@ -162,11 +203,11 @@ namespace DexuXRenderer {
     qualitySelect.className = 'control-select';
     qualitySelect.disabled = state.isBusy;
 
-    for (const option of QUALITY_OPTIONS) {
+    for (const option of getQualityOptions(videoInfo)) {
       const optionElement = document.createElement('option');
       optionElement.value = option.value;
       optionElement.textContent = option.label;
-      optionElement.selected = option.value === state.currentQuality;
+      optionElement.selected = option.value === getValidQualityForVideo(videoInfo, state.currentQuality);
       qualitySelect.append(optionElement);
     }
 
@@ -239,7 +280,7 @@ namespace DexuXRenderer {
     queueButton.disabled = state.isBusy || isQueued(url);
 
     actions.append(downloadButton, queueButton);
-    controls.append(createQualityControl(), createFolderControl(), qualityHint, actions);
+    controls.append(createQualityControl(videoInfo), createFolderControl(), qualityHint, actions);
     return controls;
   }
 
@@ -355,37 +396,18 @@ namespace DexuXRenderer {
   export function createLoadingPanel(): HTMLDivElement {
     const loading = document.createElement('div');
     loading.className = 'loading-panel';
-    loading.textContent = 'Loading details for this video...';
+    const spinner = document.createElement('span');
+    spinner.className = 'loading-spinner';
+
+    const text = document.createElement('span');
+    text.textContent = 'Loading details for this video...';
+
+    loading.append(spinner, text);
     return loading;
   }
 
-  export function createExpandedCard(result: SearchResult, index: number): HTMLElement {
+  export function createExpandedCopy(result: SearchResult): HTMLDivElement {
     const selectedVideo = state.currentVideoInfo ?? result;
-
-    const card = document.createElement('article');
-    card.className = 'pin-card expanded-card animate-in';
-    card.style.setProperty('--stagger-index', String(index));
-
-    const header = document.createElement('div');
-    header.className = 'expanded-header';
-
-    const pill = document.createElement('span');
-    pill.className = 'selection-pill';
-    pill.textContent = 'Selected';
-
-    const closeButton = document.createElement('button');
-    closeButton.type = 'button';
-    closeButton.className = 'close-chip';
-    closeButton.textContent = 'Close';
-    closeButton.disabled = state.isBusy;
-    closeButton.addEventListener('click', () => {
-      clearSelection();
-    });
-
-    header.append(pill, closeButton);
-
-    const content = document.createElement('div');
-    content.className = 'expanded-layout';
 
     const copy = document.createElement('div');
     copy.className = 'expanded-copy';
@@ -408,7 +430,7 @@ namespace DexuXRenderer {
     const openButton = createQueueActionButton('Open in app', () => {
       void openVideoExternally(result.webpageUrl);
     }, { variant: 'primary' });
-    openButton.disabled = state.isBusy;
+    openButton.disabled = state.selectionStatus === 'loading';
 
     previewActions.append(openButton);
     copy.append(title, meta, url, previewActions);
@@ -419,9 +441,76 @@ namespace DexuXRenderer {
       copy.append(createLoadingPanel());
     }
 
-    content.append(createPreviewPanel(result.webpageUrl), copy);
+    return copy;
+  }
+
+  export function createExpandedCard(result: SearchResult, index: number): HTMLElement {
+    const card = document.createElement('article');
+    card.className = 'expanded-card animate-in';
+    card.dataset.url = result.webpageUrl;
+    card.style.setProperty('--stagger-index', String(index));
+
+    const header = document.createElement('div');
+    header.className = 'expanded-header';
+
+    const pill = document.createElement('span');
+    pill.className = 'selection-pill';
+    pill.textContent = 'Selected';
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'close-chip';
+    closeButton.textContent = 'Close';
+    closeButton.addEventListener('click', () => {
+      clearSelection();
+    });
+
+    header.append(pill, closeButton);
+
+    const content = document.createElement('div');
+    content.className = 'expanded-layout';
+
+    content.append(createPreviewPanel(result.webpageUrl), createExpandedCopy(result));
     card.append(header, content);
     return card;
+  }
+
+  export function renderSelectionPanel({ preservePreview = false }: { preservePreview?: boolean } = {}): void {
+    if (!state.selectedUrl) {
+      ui.selectionContent.replaceChildren();
+      ui.selectionModal.classList.add('hidden');
+      ui.selectionModalOverlay.classList.add('hidden');
+      ui.selectionModalOverlay.setAttribute('aria-hidden', 'true');
+      return;
+    }
+
+    const selectedResult = state.searchItems.find((result) => result.webpageUrl === state.selectedUrl) ?? state.currentVideoInfo;
+
+    if (!selectedResult) {
+      return;
+    }
+
+    const existingCard = ui.selectionContent.querySelector<HTMLElement>('.expanded-card');
+    const existingCopy = existingCard?.querySelector<HTMLElement>('.expanded-copy');
+
+    if (preservePreview && existingCard?.dataset.url === selectedResult.webpageUrl && existingCopy) {
+      const pill = existingCard.querySelector<HTMLElement>('.selection-pill');
+      if (pill) {
+        pill.textContent = state.selectionStatus === 'loading' ? 'Loading' : 'Selected';
+      }
+
+      existingCopy.replaceWith(createExpandedCopy(selectedResult));
+      ui.selectionModal.classList.remove('hidden');
+      ui.selectionModalOverlay.classList.remove('hidden');
+      ui.selectionModalOverlay.setAttribute('aria-hidden', 'false');
+      return;
+    }
+
+    ui.selectionContent.replaceChildren();
+    ui.selectionContent.append(createExpandedCard(selectedResult, 0));
+    ui.selectionModal.classList.remove('hidden');
+    ui.selectionModalOverlay.classList.remove('hidden');
+    ui.selectionModalOverlay.setAttribute('aria-hidden', 'false');
   }
 
   export function createEmptyState(): HTMLElement {
@@ -447,6 +536,7 @@ namespace DexuXRenderer {
       renderQueue();
       ui.searchResults.replaceChildren();
       ui.searchSummary.textContent = '';
+      renderSelectionPanel({ preservePreview: true });
       return;
     }
 
@@ -457,17 +547,17 @@ namespace DexuXRenderer {
 
     if (state.searchItems.length === 0) {
       ui.searchResults.append(createEmptyState());
+      renderSelectionPanel({ preservePreview: true });
       return;
     }
 
     const fragment = document.createDocumentFragment();
 
     for (const [index, result] of state.searchItems.entries()) {
-      const card =
-        state.selectedUrl === result.webpageUrl ? createExpandedCard(result, index) : createCompactCard(result, index);
-      fragment.append(card);
+      fragment.append(createCompactCard(result, index));
     }
 
     ui.searchResults.append(fragment);
+    renderSelectionPanel({ preservePreview: true });
   }
 }

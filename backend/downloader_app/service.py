@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, unquote, urljoin, urlparse
 from urllib.request import Request, urlopen
 from typing import Any
 
@@ -10,6 +11,11 @@ from yt_dlp import YoutubeDL
 
 from .constants import QUALITY_SELECTORS, READ_ONLY_YTDLP_OPTIONS
 from .emitter import JsonEmitter
+
+try:
+    import imageio_ffmpeg
+except Exception:  # pragma: no cover - optional fallback for developer machines without bundled ffmpeg.
+    imageio_ffmpeg = None
 
 
 class DownloaderService:
@@ -62,6 +68,65 @@ class DownloaderService:
                 "quality": quality,
             },
         )
+
+    def inspect_media_url(self, url: str) -> None:
+        request = Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Referer": "https://dexux.app/",
+                "Accept": "*/*",
+            },
+        )
+
+        with urlopen(request) as response:
+            final_url = response.geturl()
+            mime_type = response.headers.get("Content-Type")
+            status_code = response.status
+            direct_kind = self._detect_media_kind(final_url, mime_type)
+
+            if direct_kind:
+                self.emitter.emit(
+                    "info",
+                    [
+                        self._build_detected_media(
+                            final_url,
+                            direct_kind,
+                            url,
+                            mime_type,
+                            status_code,
+                            self._media_confidence(direct_kind, mime_type, status_code),
+                        )
+                    ],
+                )
+                return
+
+            content_type = (mime_type or "").lower()
+            if "text/" not in content_type and "json" not in content_type and "javascript" not in content_type:
+                self.emitter.emit("info", [])
+                return
+
+            page_text = response.read(1024 * 1024).decode("utf-8", errors="ignore")
+
+        detected: list[dict[str, Any]] = []
+        seen_urls: set[str] = set()
+
+        for raw_candidate in re.findall(r"""(?:"|')([^"']+(?:\.m3u8|\.mp4)[^"']*)(?:"|')""", page_text, flags=re.I):
+            candidate = raw_candidate.replace("\\/", "/")
+            resolved_url = urljoin(url, candidate)
+
+            if resolved_url in seen_urls:
+                continue
+
+            kind = self._detect_media_kind(resolved_url)
+
+            if not kind:
+                continue
+
+            seen_urls.add(resolved_url)
+            detected.append(self._build_detected_media(resolved_url, kind, url, None, None, "candidate"))
+
+        self.emitter.emit("info", detected)
 
     def _download_direct_media(self, url: str, destination: Path, quality: str, referer: str | None) -> None:
         parsed = urlparse(url)
@@ -135,7 +200,7 @@ class DownloaderService:
         quality: str,
         progress_hook: Callable[[dict[str, Any]], None],
     ) -> dict[str, Any]:
-        return {
+        options: dict[str, Any] = {
             "quiet": True,
             "no_warnings": True,
             "noplaylist": True,
@@ -143,8 +208,31 @@ class DownloaderService:
             "paths": {"home": str(destination)},
             "outtmpl": {"default": "%(title).180B [%(id)s].%(ext)s"},
             "merge_output_format": "mp4",
+            "final_ext": "mp4",
+            "prefer_ffmpeg": True,
+            "postprocessors": [
+                {
+                    "key": "FFmpegVideoRemuxer",
+                    "preferedformat": "mp4",
+                }
+            ],
             "progress_hooks": [progress_hook],
         }
+
+        ffmpeg_location = self._resolve_ffmpeg_location()
+        if ffmpeg_location:
+            options["ffmpeg_location"] = ffmpeg_location
+
+        return options
+
+    def _resolve_ffmpeg_location(self) -> str | None:
+        if imageio_ffmpeg is None:
+            return None
+
+        try:
+            return str(imageio_ffmpeg.get_ffmpeg_exe())
+        except Exception:
+            return None
 
     def _emit_download_progress(self, progress: dict[str, Any]) -> None:
         status = progress.get("status")
@@ -203,21 +291,84 @@ class DownloaderService:
         }
 
     def _build_format_selector(self, quality: str) -> str:
-        return QUALITY_SELECTORS.get(quality, QUALITY_SELECTORS["best"])
+        if quality in QUALITY_SELECTORS:
+            return QUALITY_SELECTORS[quality]
+
+        match = re.fullmatch(r"(\d{3,4})p", quality.strip().lower())
+        if match:
+            height = int(match.group(1))
+            return (
+                f"bv*[height<={height}][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/"
+                f"bv*[height<={height}][ext=mp4]+ba[ext=m4a]/"
+                f"b[height<={height}][ext=mp4]/"
+                f"b[height<={height}]"
+            )
+
+        return QUALITY_SELECTORS["best"]
 
     def _is_direct_media_url(self, url: str) -> bool:
-        lowered = url.lower()
-        return (
-            ".mp4" in lowered
-            or "mime=video/mp4" in lowered
-            or "mime=audio/mp4" in lowered
-            or lowered.endswith(".m4v")
-        )
+        return self._detect_media_kind(url) == "mp4"
+
+    def _detect_media_kind(self, url: str, mime_type: str | None = None) -> str | None:
+        lowered_url = url.lower()
+        lowered_mime = (mime_type or "").lower()
+
+        if (
+            ".m3u8" in lowered_url
+            or "application/vnd.apple.mpegurl" in lowered_mime
+            or "application/x-mpegurl" in lowered_mime
+        ):
+            return "m3u8"
+
+        if (
+            ".mp4" in lowered_url
+            or "mime=video/mp4" in lowered_url
+            or "mime=audio/mp4" in lowered_url
+            or lowered_url.endswith(".m4v")
+            or "video/mp4" in lowered_mime
+            or "audio/mp4" in lowered_mime
+        ):
+            return "mp4"
+
+        return None
+
+    def _media_confidence(self, kind: str, mime_type: str | None, status_code: int | None) -> str:
+        lowered_mime = (mime_type or "").lower()
+
+        if status_code is not None and status_code >= 400:
+            return "blocked"
+
+        if kind == "m3u8" and (
+            "application/vnd.apple.mpegurl" in lowered_mime
+            or "application/x-mpegurl" in lowered_mime
+            or status_code in {200, 206}
+        ):
+            return "confirmed"
+
+        if kind == "mp4" and ("video/mp4" in lowered_mime or "audio/mp4" in lowered_mime or status_code in {200, 206}):
+            return "confirmed"
+
+        return "candidate"
+
+    def _build_detected_media(
+        self,
+        url: str,
+        kind: str,
+        source_url: str | None,
+        mime_type: str | None,
+        status_code: int | None,
+        confidence: str,
+    ) -> dict[str, Any]:
+        return {
+            "url": url,
+            "kind": kind,
+            "sourceUrl": source_url,
+            "mimeType": mime_type,
+            "statusCode": status_code,
+            "confidence": confidence,
+        }
 
     def _infer_direct_media_extension(self, url: str) -> str:
-        lowered = url.lower()
-        if ".m4v" in lowered:
-            return "m4v"
         return "mp4"
 
     def _infer_direct_media_title(self, url: str) -> str:

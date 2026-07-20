@@ -14,6 +14,7 @@ class DownloaderCli:
             "info": self.handle_info_command,
             "search": self.handle_search_command,
             "download": self.handle_download_command,
+            "inspect-media": self.handle_inspect_media_command,
         }
 
     def run(self, argv: list[str]) -> None:
@@ -43,6 +44,9 @@ class DownloaderCli:
         quality = args[2] if len(args) > 2 else "best"
         referer = args[3] if len(args) > 3 and args[3] else None
         self.service.download_video(url, output_dir, quality, referer)
+
+    def handle_inspect_media_command(self, args: list[str]) -> None:
+        self.service.inspect_media_url(self.require_argument(args, 0, "A URL is required."))
 
     def require_argument(self, args: list[str], index: int, error_message: str) -> str:
         try:

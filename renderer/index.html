@@ -160,6 +160,11 @@
       </div>
     </section>
 
+    <div id="selection-modal-overlay" class="selection-modal-overlay hidden" aria-hidden="true"></div>
+    <section id="selection-modal" class="selection-modal hidden" aria-labelledby="selection-modal-title">
+      <div id="selection-content"></div>
+    </section>
+
     <div id="media-catcher-overlay" class="video-modal-overlay hidden" aria-hidden="true"></div>
     <section id="media-catcher-modal" class="media-catcher-modal hidden" aria-labelledby="media-catcher-title">
       <div class="video-modal-header">
@@ -176,10 +181,6 @@
       </div>
 
       <div class="media-catcher-layout">
-        <div class="media-catcher-browser">
-          <webview id="media-catcher-view" class="media-catcher-view" partition="persist:dexux-catcher"></webview>
-        </div>
-
         <aside class="media-catcher-results">
           <div class="media-catcher-results-header">
             <h3>Detected media</h3>
@@ -197,6 +198,7 @@
     <script src="./state.js"></script>
     <script src="./ui.js"></script>
     <script src="./render.js"></script>
+    <script src="./tauri-api.js"></script>
     <script src="./actions.js"></script>
     <script src="./app.js"></script>
     <script type="module" src="./pretext-title.js"></script>
