@@ -1,7 +1,7 @@
 {
   "name": "dexux-youtube-downloader",
   "productName": "DexuX Downloader",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Tauri and Python desktop app for downloading YouTube videos.",
   "scripts": {
     "build": "node scripts/build.mjs",
