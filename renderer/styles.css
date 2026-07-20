@@ -109,7 +109,7 @@ select {
 
 .app-shell {
   position: relative;
-  width: min(1200px, calc(100vw - 32px));
+  width: min(1320px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 28px 0 40px;
 }
@@ -150,6 +150,14 @@ select {
   z-index: 30;
 }
 
+.selection-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 18, 0.36);
+  backdrop-filter: blur(6px);
+  z-index: 28;
+}
+
 .appearance-menu {
   position: absolute;
   top: 74px;
@@ -175,6 +183,16 @@ select {
   background: rgba(255, 253, 251, calc(var(--surface-strong-alpha) + 0.02));
   box-shadow: var(--shadow);
   z-index: 31;
+}
+
+.selection-modal {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(1120px, calc(100vw - 44px));
+  max-height: calc(100vh - 44px);
+  overflow: auto;
+  z-index: 29;
 }
 
 .video-modal-header {
@@ -221,26 +239,15 @@ select {
 }
 
 .media-catcher-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
-  gap: 18px;
-  align-items: start;
+  display: block;
 }
 
-.media-catcher-browser,
 .media-catcher-results {
   min-width: 0;
   border-radius: 22px;
   border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   background: rgba(255, 255, 255, var(--surface-alpha));
   overflow: hidden;
-}
-
-.media-catcher-view {
-  display: flex;
-  width: 100%;
-  height: min(68vh, 760px);
-  background: #fff;
 }
 
 .media-catcher-results {
@@ -895,7 +902,7 @@ button:disabled {
 
 .pin-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 18px;
   align-items: start;
 }
@@ -914,6 +921,32 @@ button:disabled {
   transform: translateY(12px);
   animation: card-enter 420ms var(--ease-spring) forwards;
   animation-delay: calc(var(--stagger-index, 0) * 40ms);
+}
+
+.compact-card.is-selected,
+.compact-card.is-loading-selection {
+  border-color: color-mix(in srgb, var(--accent) 44%, var(--border));
+  box-shadow: 0 16px 42px rgba(217, 75, 69, 0.16);
+}
+
+.compact-card.is-loading-selection .pin-image {
+  filter: saturate(0.9) brightness(0.76);
+}
+
+.selected-card-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 11px;
+  border-radius: 999px;
+  color: #fff8f7;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
+  font-size: 0.76rem;
+  font-weight: 700;
+  box-shadow: 0 10px 22px rgba(33, 30, 29, 0.18);
 }
 
 .pin-card-button {
@@ -1050,8 +1083,11 @@ button:disabled {
 }
 
 .expanded-card {
-  grid-column: span 2;
-  padding: 22px;
+  width: 100%;
+  padding: 20px;
+  border: 1px solid rgba(92, 63, 51, 0.07);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
   background: linear-gradient(
     180deg,
     rgba(255, 253, 252, var(--surface-strong-alpha)) 0%,
@@ -1065,7 +1101,7 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .selection-pill {
@@ -1076,20 +1112,21 @@ button:disabled {
 
 .expanded-layout {
   display: grid;
-  grid-template-columns: minmax(320px, 1.08fr) minmax(0, 0.92fr);
-  gap: 22px;
+  grid-template-columns: minmax(250px, 0.86fr) minmax(300px, 1fr);
+  gap: 20px;
   align-items: start;
 }
 
 .expanded-copy {
   min-width: 0;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   align-content: start;
 }
 
 .expanded-title {
-  font-size: 1.45rem;
+  font-size: clamp(1.18rem, 2vw, 1.55rem);
+  overflow-wrap: anywhere;
 }
 
 .expanded-meta,
@@ -1099,13 +1136,14 @@ button:disabled {
 
 .expanded-link {
   font-size: 0.92rem;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .expanded-preview-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 
 .video-preview-panel {
@@ -1132,9 +1170,9 @@ button:disabled {
 }
 
 .download-controls {
-  margin-top: 18px;
+  margin-top: 14px;
   display: grid;
-  gap: 16px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -1145,16 +1183,39 @@ button:disabled {
 }
 
 .folder-display {
+  min-width: 0;
   background: rgba(255, 255, 255, var(--surface-input-alpha));
+  text-overflow: ellipsis;
 }
 
 .quality-hint {
-  font-size: 0.92rem;
-  line-height: 1.6;
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
-.download-button {
+.folder-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+
+.expanded-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.download-button,
+.expanded-actions .queue-action-button {
   min-width: 0;
+  min-height: 52px;
+  padding-inline: 16px;
+  white-space: normal;
+}
+
+.expanded-actions .queue-action-button {
+  line-height: 1.25;
+  text-align: center;
 }
 
 .loading-panel {
@@ -1163,6 +1224,19 @@ button:disabled {
   border-radius: 20px;
   background: rgba(255, 255, 255, var(--surface-alpha));
   color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.loading-spinner {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  border-top-color: var(--accent);
+  animation: spin 760ms linear infinite;
 }
 
 .empty-board {
@@ -1201,6 +1275,12 @@ button:disabled {
   }
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes status-pulse {
   0% {
     opacity: 0.65;
@@ -1233,12 +1313,15 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .expanded-card {
-    grid-column: span 1;
-  }
-
   .expanded-layout {
     grid-template-columns: 1fr;
+  }
+
+  .selection-modal {
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    width: min(720px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
   }
 
   .media-catcher-layout {
@@ -1258,7 +1341,8 @@ button:disabled {
 
   .masthead,
   .search-card,
-  .feed-shell {
+  .feed-shell,
+  .expanded-card {
     border-radius: 26px;
   }
 
@@ -1267,11 +1351,14 @@ button:disabled {
   .queue-toolbar,
   .search-row,
   .media-catcher-toolbar,
-  .folder-row,
-  .expanded-actions,
   .queue-item {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .folder-row,
+  .expanded-actions {
+    grid-template-columns: 1fr;
   }
 
   .queue-summary,

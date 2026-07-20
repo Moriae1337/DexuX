@@ -6,3 +6,5 @@ downloads/
 dist/
 release/
 build-resources/
+src-tauri/gen/
+src-tauri/target/

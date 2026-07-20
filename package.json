@@ -2,67 +2,25 @@
   "name": "dexux-youtube-downloader",
   "productName": "DexuX Downloader",
   "version": "0.4.1",
-  "description": "Electron and Python desktop app for downloading YouTube videos.",
-  "main": "dist/electron/main.js",
+  "description": "Tauri and Python desktop app for downloading YouTube videos.",
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:backend": "node scripts/build-backend.mjs",
-    "package:linux": "npm run build && node scripts/build-backend.mjs linux && electron-builder --linux AppImage --publish never",
-    "package:win": "npm run build && node scripts/build-backend.mjs win32 && electron-builder --win nsis --publish never",
-    "start": "npm run build && electron .",
-    "dev": "npm run build && electron ."
-  },
-  "build": {
-    "appId": "com.dexux.downloader",
-    "artifactName": "DexuX-Downloader-${version}.${ext}",
-    "electronUpdaterCompatibility": ">=2.16",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "package.json"
-    ],
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "Moriae1337",
-        "repo": "DexuX",
-        "tagNamePrefix": "dexux-youtube-downloader-v"
-      }
-    ],
-    "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "category": "Utility",
-      "extraResources": [
-        {
-          "from": "build-resources/backend/linux/downloader",
-          "to": "backend/downloader"
-        }
-      ]
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ],
-      "extraResources": [
-        {
-          "from": "build-resources/backend/win32/downloader.exe",
-          "to": "backend/downloader.exe"
-        }
-      ]
-    }
+    "tauri": "tauri",
+    "package:linux": "npm run build && node scripts/build-backend.mjs linux && tauri build --bundles appimage",
+    "package:win": "npm run build && node scripts/build-backend.mjs win32 && tauri build --bundles nsis",
+    "start": "tauri dev",
+    "dev": "tauri dev"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
     "@types/node": "^26.1.1",
-    "electron": "^43.1.1",
-    "electron-builder": "^26.15.3",
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@chenglou/pretext": "^0.0.8",
-    "electron-updater": "^6.8.9"
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-opener": "^2.0.0",
+    "@chenglou/pretext": "^0.0.8"
   }
 }

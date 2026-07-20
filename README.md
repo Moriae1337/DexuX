@@ -1,6 +1,6 @@
 # DexuX Downloader
 
-Electron desktop app with a Python backend for inspecting and downloading videos with `yt-dlp`.
+Tauri desktop app with a Python backend for inspecting and downloading videos with `yt-dlp`.
 
 ## What it does
 
@@ -12,9 +12,9 @@ Electron desktop app with a Python backend for inspecting and downloading videos
 
 ## Setup
 
-1. Install Node.js 18+ and Python 3.10+.
+1. Install Node.js 18+, Rust 1.77.2+, and Python 3.10+.
 2. Install `ffmpeg` and make sure it is available on your `PATH`.
-3. Install Electron dependencies:
+3. Install desktop dependencies:
 
 ```bash
 npm install
@@ -36,12 +36,12 @@ npm start
 
 ## Packaging
 
-- `npm run package:linux` and `npm run package:win` build a standalone downloader executable with PyInstaller and bundle it into the desktop app.
+- `npm run package:linux` and `npm run package:win` build a standalone downloader executable with PyInstaller and bundle it into the Tauri desktop app.
 - End users on Linux and Windows do not need Python or `yt-dlp` installed to use the packaged app.
 - Build each release on its target OS so PyInstaller can produce a native backend binary for that platform.
 - The build machine still needs Python available to create the standalone backend.
 - `ffmpeg` is still expected on the target machine `PATH` for merge-heavy downloads.
-- Auto-update metadata is published from GitHub Releases, using the `dexux-youtube-downloader-v*` tags created by `release-please`.
+- Tauri updater signing is not configured yet; releases are bundled without updater artifacts.
 
 ## Notes
 

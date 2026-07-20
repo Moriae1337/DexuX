@@ -13,5 +13,5 @@
     "rootDir": ".",
     "outDir": "dist"
   },
-  "include": ["electron/**/*.ts", "renderer/**/*.ts", "shared/**/*.d.ts"]
+  "include": ["renderer/**/*.ts", "shared/**/*.d.ts"]
 }

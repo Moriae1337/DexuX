@@ -125,6 +125,10 @@ namespace DexuXRenderer {
       closeVideoPreview();
     });
 
+    ui.selectionModalOverlay.addEventListener('click', () => {
+      clearSelection();
+    });
+
     document.addEventListener('keydown', (event: KeyboardEvent) => {
       if (event.key !== 'Escape') {
         return;
@@ -132,6 +136,10 @@ namespace DexuXRenderer {
 
       if (!ui.videoModal.classList.contains('hidden')) {
         closeVideoPreview();
+      }
+
+      if (!ui.selectionModal.classList.contains('hidden')) {
+        clearSelection();
       }
 
       if (!ui.appearanceMenu.classList.contains('hidden')) {
