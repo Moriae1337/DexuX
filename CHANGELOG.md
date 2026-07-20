@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.0](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.4.1...dexux-youtube-downloader-v0.5.0) (2026-07-20)
+
+
+### Features
+
+* migrate desktop shell to Tauri ([#38](https://github.com/Moriae1337/DexuX/issues/38)) ([84c136f](https://github.com/Moriae1337/DexuX/commit/84c136f83d71c00b02814cca0f2769b805e38d3e))
+
+
+### Bug Fixes
+
+* **deps:** bump @types/node from 26.0.0 to 26.0.1 ([#27](https://github.com/Moriae1337/DexuX/issues/27)) ([ff38ebd](https://github.com/Moriae1337/DexuX/commit/ff38ebd5efe53300e8818430b3a47065b155c1c6))
+* **deps:** bump @types/node from 26.0.1 to 26.1.0 ([#29](https://github.com/Moriae1337/DexuX/issues/29)) ([9fca76b](https://github.com/Moriae1337/DexuX/commit/9fca76b3e47f54f17e42c11388ee813de3b3b958))
+* **deps:** bump @types/node from 26.1.0 to 26.1.1 ([#33](https://github.com/Moriae1337/DexuX/issues/33)) ([f0fee3f](https://github.com/Moriae1337/DexuX/commit/f0fee3f68801e3d3472b9a24da6f00815972f63e))
+* **deps:** bump electron from 42.4.1 to 42.5.0 ([#26](https://github.com/Moriae1337/DexuX/issues/26)) ([364a0f8](https://github.com/Moriae1337/DexuX/commit/364a0f8090d77edc29a2e787c3a5aade1aa5ebab))
+* **deps:** bump electron from 42.5.0 to 42.5.1 ([#28](https://github.com/Moriae1337/DexuX/issues/28)) ([1ce8863](https://github.com/Moriae1337/DexuX/commit/1ce88632c447852dc67f8dff40869a7efdabcf7b))
+* **deps:** bump electron from 42.5.1 to 43.1.0 ([#32](https://github.com/Moriae1337/DexuX/issues/32)) ([a845086](https://github.com/Moriae1337/DexuX/commit/a845086ba80037bb90c89bfcaf9d41397a737caa))
+* **deps:** bump electron from 43.1.0 to 43.1.1 ([#35](https://github.com/Moriae1337/DexuX/issues/35)) ([302a3a4](https://github.com/Moriae1337/DexuX/commit/302a3a40838a3247ad613b66c9c9cb07d8262e87))
+* **deps:** bump typescript from 6.0.3 to 7.0.2 ([#34](https://github.com/Moriae1337/DexuX/issues/34)) ([e743482](https://github.com/Moriae1337/DexuX/commit/e743482b1679885a412e0d20bb07a02f76da77b1))
+* **deps:** bump yt-dlp from 2026.6.9 to 2026.7.4 ([#31](https://github.com/Moriae1337/DexuX/issues/31)) ([1690bf4](https://github.com/Moriae1337/DexuX/commit/1690bf4fd6d3a1fc7c8ca01bde74f1d60f1904a5))
+
 ## [0.4.1](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.4.0...dexux-youtube-downloader-v0.4.1) (2026-06-22)
 
 
