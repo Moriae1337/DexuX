@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.5.0...dexux-youtube-downloader-v0.5.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* tauri package ci ([#40](https://github.com/Moriae1337/DexuX/issues/40)) ([e84cfde](https://github.com/Moriae1337/DexuX/commit/e84cfde5de73c760c65ff4088f78e50206ab8e37))
+
 ## [0.5.0](https://github.com/Moriae1337/DexuX/compare/dexux-youtube-downloader-v0.4.1...dexux-youtube-downloader-v0.5.0) (2026-07-20)
 
 
