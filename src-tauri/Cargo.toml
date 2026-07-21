@@ -1,6 +1,6 @@
 [package]
 name = "dexux_downloader"
-version = "0.4.0"
+version = "0.5.3"
 description = "DexuX Downloader desktop shell"
 authors = ["Moriae1337"]
 edition = "2021"

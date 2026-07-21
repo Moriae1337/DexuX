@@ -59,10 +59,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag_name }}
+          fail_on_unmatched_files: true
           files: |
-            release/*.AppImage
-            release/latest-linux.yml
-            release/*.blockmap
+            src-tauri/target/release/bundle/appimage/*.AppImage
 
   package-windows:
     runs-on: windows-latest
@@ -94,6 +93,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag_name }}
+          fail_on_unmatched_files: true
           files: |
-            release/*.exe
-            release/latest*.yml
+            src-tauri/target/release/bundle/nsis/*.exe
