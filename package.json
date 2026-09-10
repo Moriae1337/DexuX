@@ -21,6 +21,6 @@
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.7.3",
     "@tauri-apps/plugin-opener": "^2.5.5",
-    "@chenglou/pretext": "^0.0.8"
+    "@chenglou/pretext": "^0.0.9"
   }
 }
