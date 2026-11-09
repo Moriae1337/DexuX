@@ -1,2 +1,2 @@
 yt-dlp==2026.10.26
-imageio-ffmpeg==0.8.0
+imageio-ffmpeg==0.8.1
